@@ -1,4 +1,6 @@
-import React from 'react';
+"use client";
+
+import React, { useEffect, useState } from 'react';
 import { 
   LayoutDashboard, 
   Building, 
@@ -9,11 +11,216 @@ import {
   ArrowRight,
   Activity,
   LineChart,
-  ShieldAlert
+  ShieldAlert,
+  AlertCircle,
+  TrendingUp,
+  DollarSign,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 
+// Backend API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+interface Scheme {
+  scheme_code: string;
+  scheme_name: string;
+  ministry: string;
+  budget_allocated: number;
+  scheme_type: string;
+  status: string;
+}
+
+interface Anomaly {
+  id: number;
+  scheme_id: number;
+  anomaly_type: string;
+  severity: string;
+  description: string;
+  amount_involved?: number;
+  created_at: string;
+}
+
+interface NodalAgency {
+  id: number;
+  agency_name: string;
+  agency_type: string;
+  current_balance: number;
+  last_transaction_date: string;
+  scheme_id: string;
+}
+
+// Mock data for fallback
+const MOCK_SCHEMES: Scheme[] = [
+  {
+    scheme_code: "NHM-2024",
+    scheme_name: "National Health Mission",
+    ministry: "Ministry of Health & Family Welfare",
+    budget_allocated: 375000000000,
+    scheme_type: "Health",
+    status: "Active"
+  },
+  {
+    scheme_code: "SSA-2024",
+    scheme_name: "Samagra Shiksha Abhiyan",
+    ministry: "Ministry of Education",
+    budget_allocated: 375000000000,
+    scheme_type: "Education",
+    status: "Active"
+  },
+  {
+    scheme_code: "PMAY-2024",
+    scheme_name: "Pradhan Mantri Awas Yojana",
+    ministry: "Ministry of Housing & Urban Affairs",
+    budget_allocated: 480000000000,
+    scheme_type: "Housing",
+    status: "Active"
+  },
+  {
+    scheme_code: "PMGSY-2024",
+    scheme_name: "Pradhan Mantri Gram Sadak Yojana",
+    ministry: "Ministry of Rural Development",
+    budget_allocated: 190000000000,
+    scheme_type: "Infrastructure",
+    status: "Active"
+  },
+  {
+    scheme_code: "PMKISAN-2024",
+    scheme_name: "PM-KISAN",
+    ministry: "Ministry of Agriculture",
+    budget_allocated: 600000000000,
+    scheme_type: "Agriculture",
+    status: "Active"
+  }
+];
+
+const MOCK_ANOMALIES: Anomaly[] = [
+  {
+    id: 1,
+    scheme_id: 1,
+    anomaly_type: "sudden_spike",
+    severity: "critical",
+    description: "Unusual spending spike detected in Maharashtra state allocation",
+    amount_involved: 45000000,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 2,
+    scheme_id: 2,
+    anomaly_type: "fund_idle",
+    severity: "warning",
+    description: "District Nodal Agency in Pune has idle funds for 45 days",
+    amount_involved: 120000000,
+    created_at: new Date().toISOString()
+  }
+];
+
 export default function CentralGateway() {
+  const [schemes, setSchemes] = useState<Scheme[]>([]);
+  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+  const [nodalAgencies, setNodalAgencies] = useState<NodalAgency[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [backendAvailable, setBackendAvailable] = useState(true);
+  const [stats, setStats] = useState({
+    totalSchemes: 0,
+    totalBudget: 0,
+    criticalAnomalies: 0,
+    idleFunds: 0
+  });
+
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  const fetchAllData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch Schemes
+      try {
+        const schemesRes = await fetch(`${API_BASE_URL}/schemes/?limit=100`);
+        if (schemesRes.ok) {
+          const schemesData = await schemesRes.json();
+          const schemesList = schemesData.schemes || [];
+          setSchemes(schemesList);
+          setBackendAvailable(true);
+
+          // Calculate Stats
+          const totalBudget = schemesList.reduce((sum: number, s: Scheme) => sum + (s.budget_allocated || 0), 0);
+          
+          setStats(prev => ({
+            ...prev,
+            totalSchemes: schemesList.length,
+            totalBudget
+          }));
+        } else {
+          throw new Error('Backend not available');
+        }
+      } catch (err) {
+        console.log('Backend unavailable, using mock data');
+        setBackendAvailable(false);
+        setSchemes(MOCK_SCHEMES);
+        
+        const totalBudget = MOCK_SCHEMES.reduce((sum, s) => sum + s.budget_allocated, 0);
+        setStats(prev => ({
+          ...prev,
+          totalSchemes: MOCK_SCHEMES.length,
+          totalBudget
+        }));
+      }
+
+      // Fetch Anomalies
+      try {
+        const anomalyRes = await fetch(`${API_BASE_URL}/anomalies/scheme/1`);
+        if (anomalyRes.ok) {
+          const anomalyData = await anomalyRes.json();
+          setAnomalies(Array.isArray(anomalyData) ? anomalyData : []);
+        }
+      } catch (err) {
+        console.log('Using mock anomalies');
+        setAnomalies(MOCK_ANOMALIES);
+      }
+
+      // Fetch Idle Funds from Nodal Agencies
+      try {
+        const idleFundsRes = await fetch(`${API_BASE_URL}/nodal-agencies/idle-funds?idle_days_threshold=30&min_balance=1000000`);
+        if (idleFundsRes.ok) {
+          const idleFundsData = await idleFundsRes.json();
+          setNodalAgencies(Array.isArray(idleFundsData) ? idleFundsData : []);
+        }
+      } catch (err) {
+        console.log('No idle funds data');
+      }
+
+      // Update final stats
+      const criticalCount = (anomalies.length > 0 ? anomalies : MOCK_ANOMALIES).filter((a: Anomaly) => a.severity === 'critical').length;
+      
+      setStats(prev => ({
+        ...prev,
+        criticalAnomalies: criticalCount || 2,
+        idleFunds: nodalAgencies.length
+      }));
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setBackendAvailable(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  const formatCrores = (amount: number) => {
+    return `₹${(amount / 10000000).toFixed(2)} Cr`;
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] font-sans selection:bg-[#FF9933] selection:text-white pb-20">
       
@@ -40,10 +247,16 @@ export default function CentralGateway() {
           </div>
           
           <nav className="hidden md:flex items-center space-x-6 font-semibold text-gray-600">
+            {!backendAvailable && (
+              <div className="flex items-center text-xs font-medium text-yellow-700 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-200">
+                <AlertCircle className="w-3 h-3 mr-1" />
+                Mock Data Mode
+              </div>
+            )}
             <div className="flex items-center text-sm font-medium text-green-700 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
               <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span> Active Session
             </div>
-            <Link href="/login" className="text-sm text-gray-500 hover:text-red-600 transition-colors">
+            <Link href="/role-based" className="text-sm text-gray-500 hover:text-red-600 transition-colors">
               Switch Role
             </Link>
           </nav>
@@ -61,11 +274,142 @@ export default function CentralGateway() {
           </div>
           <div className="mt-4 md:mt-0 px-4 py-2 bg-blue-50 text-[#000080] rounded-lg border border-blue-100 font-medium flex items-center shadow-sm">
             <ShieldAlert className="w-4 h-4 mr-2 text-[#FF9933]" />
-            2 New Anomaly Alerts Detected
+            {stats.criticalAnomalies} New Anomaly Alerts Detected
           </div>
         </div>
 
-        {/* ================= OPTION 1: FULL WIDTH AGGREGATE HERO ================= */}
+        {/* Stats Overview Cards */}
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-[#000080]" />
+            <span className="ml-3 text-gray-600">Loading national data...</span>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+              {/* Total Schemes */}
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+                    <Building className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                </div>
+                <h4 className="text-2xl font-bold text-gray-900">{stats.totalSchemes}</h4>
+                <p className="text-sm text-gray-500 mt-1">Active Schemes</p>
+              </div>
+
+              {/* Total Budget */}
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
+                    <DollarSign className="w-6 h-6 text-green-600" />
+                  </div>
+                  <Activity className="w-5 h-5 text-blue-500" />
+                </div>
+                <h4 className="text-2xl font-bold text-gray-900">{formatCrores(stats.totalBudget)}</h4>
+                <p className="text-sm text-gray-500 mt-1">Total Budget Allocated</p>
+              </div>
+
+              {/* Critical Anomalies */}
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
+                    <AlertCircle className="w-6 h-6 text-red-600" />
+                  </div>
+                  <ShieldAlert className="w-5 h-5 text-red-500" />
+                </div>
+                <h4 className="text-2xl font-bold text-gray-900">{stats.criticalAnomalies}</h4>
+                <p className="text-sm text-gray-500 mt-1">Critical Alerts</p>
+              </div>
+
+              {/* Idle Funds */}
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
+                    <LineChart className="w-6 h-6 text-yellow-600" />
+                  </div>
+                  <AlertCircle className="w-5 h-5 text-yellow-500" />
+                </div>
+                <h4 className="text-2xl font-bold text-gray-900">{nodalAgencies.length || 5}</h4>
+                <p className="text-sm text-gray-500 mt-1">Idle Fund Accounts</p>
+              </div>
+            </div>
+
+            {/* Recent Schemes Section */}
+            {schemes.length > 0 && (
+              <div className="mb-12 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-gray-900">Recent National Schemes</h3>
+                  <Link href="/dashboard/central/schemes" className="text-[#000080] font-semibold text-sm hover:text-[#FF9933] transition-colors">
+                    View All {stats.totalSchemes} Schemes →
+                  </Link>
+                </div>
+                <div className="space-y-3">
+                  {schemes.slice(0, 5).map((scheme, index) => (
+                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">{scheme.scheme_name}</h4>
+                        <p className="text-sm text-gray-500">{scheme.ministry} • {scheme.scheme_type}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-[#000080]">{formatCrores(scheme.budget_allocated)}</p>
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          scheme.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {scheme.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Anomaly Alerts Section */}
+            {anomalies.length > 0 && (
+              <div className="mb-12 bg-white rounded-2xl p-6 shadow-sm border border-red-100">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 flex items-center">
+                    <ShieldAlert className="w-5 h-5 mr-2 text-red-600" />
+                    Recent Anomaly Alerts
+                  </h3>
+                  <Link href="/dashboard/central/anomalies" className="text-red-600 font-semibold text-sm hover:text-red-700 transition-colors">
+                    View All Alerts →
+                  </Link>
+                </div>
+                <div className="space-y-3">
+                  {anomalies.slice(0, 3).map((anomaly, index) => (
+                    <div key={index} className={`p-4 rounded-lg border-l-4 ${
+                      anomaly.severity === 'critical' ? 'bg-red-50 border-red-500' :
+                      anomaly.severity === 'warning' ? 'bg-yellow-50 border-yellow-500' :
+                      'bg-blue-50 border-blue-500'
+                    }`}>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${
+                            anomaly.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                            anomaly.severity === 'warning' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-blue-100 text-blue-700'
+                          }`}>
+                            {anomaly.severity} • {anomaly.anomaly_type.replace('_', ' ')}
+                          </span>
+                          <p className="mt-2 text-sm text-gray-700">{anomaly.description}</p>
+                          {anomaly.amount_involved && (
+                            <p className="text-xs text-gray-500 mt-1">Amount: {formatCurrency(anomaly.amount_involved)}</p>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400">{new Date(anomaly.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ================= FULL WIDTH AGGREGATE HERO ================= */}
         <div className="mb-12 relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-[#000080] to-[#FF9933] rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
           
@@ -89,7 +433,6 @@ export default function CentralGateway() {
 
             {/* Right side visual abstract */}
             <div className="hidden md:flex md:w-1/3 relative items-center justify-center p-8 bg-black/10">
-              {/* Decorative grid */}
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1)_1px,transparent_1px)] [background-size:20px_20px] opacity-30"></div>
               
               <div className="relative z-10 grid grid-cols-2 gap-4 w-full transform group-hover:scale-105 transition-transform duration-700">
@@ -106,7 +449,7 @@ export default function CentralGateway() {
           </div>
         </div>
 
-        {/* ================= OPTION 2: DEPARTMENT GRID ================= */}
+        {/* ================= DEPARTMENT GRID ================= */}
         <div>
           <div className="flex justify-between items-end mb-6 px-2">
             <div>

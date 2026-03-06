@@ -81,7 +81,7 @@ export default function DistrictGateway() {
                 Access your Zilla Parishad overview. Track incoming funds from the State Nodal Agency, monitor block-wise spending performance, and ensure Direct Benefit Transfers (DBT) reach citizens without leakage.
               </p>
               
-              <Link href="/dashboard/district/main" className="inline-flex items-center justify-center bg-white text-[#c2410c] hover:bg-gray-100 font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] transition-all transform hover:-translate-y-1 w-fit text-lg">
+              <Link href="/district/main_dashboard" className="inline-flex items-center justify-center bg-white text-[#c2410c] hover:bg-gray-100 font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] transition-all transform hover:-translate-y-1 w-fit text-lg">
                 <LayoutDashboard className="w-6 h-6 mr-3" />
                 Enter District Dashboard
               </Link>

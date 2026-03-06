@@ -45,7 +45,7 @@ const PORTAL_CARDS = [
     title: "Central Department",
     description: "Scheme-specific fund routing, vendor mapping, and state-level disbursement control.",
     icon: Network,
-    href: "/dashboard/department",
+    href: "/dashboard/cna",
     color: "#8B5CF6", // Purple
     bgClass: "bg-purple-50",
     textClass: "text-[#8B5CF6]",
@@ -57,7 +57,7 @@ const PORTAL_CARDS = [
     title: "State Authority",
     description: "State-level nodal agency monitoring, district fund distribution, and scheme utilization analytics.",
     icon: Map,
-    href: "/dashboard/state",
+    href: "/state",
     color: "#000080", // Navy Blue
     bgClass: "bg-blue-50",
     textClass: "text-[#000080]",
@@ -69,7 +69,7 @@ const PORTAL_CARDS = [
     title: "District Authority",
     description: "Department spending logs, district-wide beneficiary tracking, and local lapse risk forecasting.",
     icon: MapPin,
-    href: "/dashboard/district",
+    href: "/district",
     color: "#138808", // Green
     bgClass: "bg-green-50",
     textClass: "text-[#138808]",
