@@ -97,8 +97,8 @@ export default function LokNidhiLanding() {
             </p>
             
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-              <a href="#architecture" className="flex justify-center items-center px-8 py-3.5 bg-[#FF9933] text-white font-bold rounded-lg shadow-[0_0_20px_rgba(255,153,51,0.4)] hover:bg-orange-500 hover:shadow-[0_0_25px_rgba(255,153,51,0.6)] transition-all duration-300">
-                Explore Architecture <ArrowRight className="ml-2 w-5 h-5" />
+              <a href="/role-based" className="flex justify-center items-center px-8 py-3.5 bg-[#FF9933] text-white font-bold rounded-lg shadow-[0_0_20px_rgba(255,153,51,0.4)] hover:bg-orange-500 hover:shadow-[0_0_25px_rgba(255,153,51,0.6)] transition-all duration-300">
+                Choose Role <ArrowRight className="ml-2 w-5 h-5" />
               </a>
               <button className="flex justify-center items-center px-8 py-3.5 bg-white/10 backdrop-blur-md border border-white/30 text-white font-bold rounded-lg hover:bg-white/20 transition-all duration-300">
                 Read Documentation
