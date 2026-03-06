@@ -26,7 +26,7 @@ export default function CitizenPortal() {
     { 
       id: 1, 
       sender: 'bot', 
-      text: "Namaste! I am the LokNidhi Citizen Assistant. You can ask me about government schemes, fund utilization in your state, or how to apply for benefits. How can I help you today?" 
+      text: "Namaste! I am the LokNidhi Citizen Assistant. You can ask me about government schemes, fund utilization in your state or how to apply for benefits. How can I help you today?" 
     }
   ]);
   
