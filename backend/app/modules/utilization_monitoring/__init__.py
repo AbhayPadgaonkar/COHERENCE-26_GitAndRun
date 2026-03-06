@@ -2,21 +2,40 @@
 from typing import List, Optional
 from app.database.schemas import UtilizationCreate, UtilizationResponse
 from app.core.constants import CRITICAL_UTILIZATION, WARNING_UTILIZATION, GOOD_UTILIZATION
+from app.core.firebase import FirebaseConfig
+from app.core.logger import logger
+from datetime import datetime
 
 
 class UtilizationRepository:
     """Repository for utilization data"""
     
+    COLLECTION_NAME = "utilization"
+    
     def __init__(self):
+        self.firebase = FirebaseConfig.get_db()
         self.records = []
         self.id_counter = 1
     
     def create_record(self, record: UtilizationCreate) -> dict:
         """Create a utilization record"""
         record_dict = {
-            "id": self.id_counter,
+            "created_at": datetime.now().isoformat(),
             **record.model_dump()
         }
+        
+        # Try Firebase
+        if self.firebase:
+            try:
+                doc_ref = self.firebase.collection(self.COLLECTION_NAME).add(record_dict)
+                record_dict["document_id"] = doc_ref[1].id
+                logger.info(f"Utilization record created in Firebase: {doc_ref[1].id}")
+                return record_dict
+            except Exception as e:
+                logger.warning(f"Firebase error: {e}, using fallback")
+        
+        # Fallback: in-memory
+        record_dict["id"] = self.id_counter
         self.records.append(record_dict)
         self.id_counter += 1
         return record_dict

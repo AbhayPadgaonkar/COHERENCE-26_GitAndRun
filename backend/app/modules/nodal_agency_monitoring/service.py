@@ -2,10 +2,11 @@
 from .repository import NodalAgencyRepository
 from app.database.schemas import (
     NodalAgencyAccountCreate,
-    NodalAgencyAccount,
+    NodalAgencyAccountResponse,
     NodalAgencyIdleFundAlert
 )
 from app.core.constants import NODAL_AGENCY_TYPES
+from app.core.logger import logger
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta
 
@@ -16,7 +17,7 @@ class NodalAgencyService:
     def __init__(self):
         self.repository = NodalAgencyRepository()
     
-    async def register_agency(self, agency: NodalAgencyAccountCreate) -> NodalAgencyAccount:
+    async def register_agency(self, agency: NodalAgencyAccountCreate) -> dict:
         """Register a new nodal agency with validation"""
         # TODO: Add validation logic:
         # - Validate agency_type is in NODAL_AGENCY_TYPES
@@ -65,44 +66,48 @@ class NodalAgencyService:
         
         return alerts
     
-    async def update_balance(
+    def update_balance(
         self, 
         agency_id: int,
         transaction_type: str,
         transaction_amount: float,
         transaction_reference: str
-    ) -> NodalAgencyAccount:
+    ) -> dict:
         """Update nodal agency balance after transaction"""
-        # TODO: Implement balance update logic:
-        # - Get current agency
-        # - Calculate new balance based on transaction_type (credit/debit)
-        # - Update last_transaction_date
-        # - Log transaction
-        
-        agency = await self.repository.get_agency_by_id(agency_id)
+        # Get current agency
+        agency = self.repository.get_agency_by_id(agency_id)
         
         if not agency:
             raise ValueError(f"Agency {agency_id} not found")
         
-        if transaction_type == "credit":
-            new_balance = agency.current_balance + transaction_amount
-        elif transaction_type == "debit":
-            new_balance = agency.current_balance - transaction_amount
+        # Calculate new balance based on transaction_type
+        current_bal = agency.get("current_balance", 0.0)
+        
+        if transaction_type.lower() == "credit":
+            new_balance = current_bal + transaction_amount
+        elif transaction_type.lower() == "debit":
+            new_balance = current_bal - transaction_amount
         else:
             raise ValueError(f"Invalid transaction type: {transaction_type}")
         
-        return await self.repository.update_agency_balance(
-            agency_id, 
-            new_balance, 
-            datetime.utcnow()
+        # Update balance in repository
+        updated = self.repository.update_agency_balance(
+            agency_id=agency_id,
+            new_balance=new_balance,
+            last_transaction_date=datetime.utcnow(),
+            transaction_type=transaction_type,
+            transaction_amount=transaction_amount
         )
+        
+        logger.info(f"Updated agency {agency_id}: {transaction_type} \u20b9{transaction_amount}, new balance: \u20b9{new_balance}")
+        return updated
     
     async def flag_agency_for_investigation(
         self, 
         agency_id: int,
         reason: str,
         flagged_by: str
-    ) -> NodalAgencyAccount:
+    ) -> dict:
         """Flag an agency for investigation"""
         return await self.repository.flag_agency(agency_id, reason, flagged_by)
     

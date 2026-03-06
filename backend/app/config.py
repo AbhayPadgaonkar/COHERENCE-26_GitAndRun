@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # Logging Configuration
     LOG_LEVEL: str = "INFO"
     
+    # Firebase Configuration
+    FIREBASE_CREDENTIALS_PATH: Optional[str] = None
+    FIREBASE_CREDENTIALS_JSON: Optional[str] = None
+    
     class Config:
         env_file = ".env"
         case_sensitive = True
