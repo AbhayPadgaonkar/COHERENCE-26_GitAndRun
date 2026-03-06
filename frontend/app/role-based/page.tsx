@@ -7,18 +7,18 @@ import {
   MapPin, 
   ShieldCheck, 
   ArrowRight,
-  Lock,
+  LogOut,
   Network,
   Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 
 // Firebase Imports
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/database/firebase'; // Adjust path as needed
+import { auth, db } from '@/database/firebase'; 
 
-// 1. Define Role Hierarchy Weights (Updated for 4 Tiers)
+// 1. Define Role Hierarchy Weights
 const ROLE_WEIGHTS: Record<string, number> = {
   "CENTRAL_ADMIN": 4,
   "CENTRAL_DEPT": 3,
@@ -80,9 +80,9 @@ const PORTAL_CARDS = [
 
 export default function RoleSelectionPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  // We can default loading to false here because AuthProvider already handles the initial auth check
+  const [loadingData, setLoadingData] = useState(true); 
 
-  // 3. Fetch User Role on Mount
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -92,28 +92,30 @@ export default function RoleSelectionPage() {
           
           if (docSnap.exists()) {
             setUserRole(docSnap.data().role);
-          } else {
-            console.error("User document not found in Firestore");
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
         }
-      } else {
-        // Handle unauthenticated state (e.g., redirect to login)
       }
-      setLoading(false);
+      setLoadingData(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Determine current user's access weight
-  const userWeight = userRole ? ROLE_WEIGHTS[userRole] || 0 : 0;
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      // The AuthProvider will automatically catch this and redirect to '/'
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
 
-  // Filter accessible portals based on hierarchy
+  const userWeight = userRole ? ROLE_WEIGHTS[userRole] || 0 : 0;
   const accessiblePortals = PORTAL_CARDS.filter(card => userWeight >= card.requiredWeight);
 
-  if (loading) {
+  if (loadingData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-[#000080] animate-spin" />
@@ -125,7 +127,7 @@ export default function RoleSelectionPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 py-4 shadow-sm">
+      <header className="bg-white border-b border-gray-200 py-4 shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div className="flex items-center space-x-3 sm:space-x-4">
             <img 
@@ -142,15 +144,21 @@ export default function RoleSelectionPage() {
               <h1 className="text-xl sm:text-2xl font-extrabold text-[#000080] tracking-tight">LokNidhi</h1>
             </div>
           </div>
-          <div className="flex items-center text-sm font-medium text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-200">
-            <Lock className="w-4 h-4 mr-2" /> Secure Portal
-          </div>
+          
+          {/* Logout Button */}
+          <button 
+            onClick={handleLogout}
+            className="flex items-center text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors px-4 py-2 rounded-lg border border-red-200 shadow-sm"
+          >
+            Sign Out <LogOut className="w-4 h-4 ml-2" />
+          </button>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-4">
-        <div className="max-w-6xl w-full">
+        {/* Changed max-w-6xl to max-w-7xl to comfortably fit 4 cards in a row */}
+        <div className="max-w-7xl w-full">
           
           {/* Header Text */}
           <div className="text-center mb-10">
@@ -160,22 +168,22 @@ export default function RoleSelectionPage() {
               Please choose your administrative tier to access the LokNidhi intelligence dashboard.
             </p>
             {userRole && (
-               <p className="text-xs font-semibold text-[#FF9933] uppercase tracking-wider bg-orange-50 inline-block px-3 py-1 rounded-full border border-orange-200">
+               <p className="text-xs font-semibold text-[#FF9933] uppercase tracking-wider bg-orange-50 inline-block px-3 py-1 rounded-full border border-orange-200 shadow-sm">
                  Current Profile: {userRole.replace('_', ' ')}
                </p>
             )}
           </div>
 
-          {/* Dynamic Role Cards - NOW USING FLEXBOX FOR PERFECT CENTERING */}
+          {/* Dynamic Role Cards - Flex layout optimized for single row */}
           {accessiblePortals.length > 0 ? (
-            <div className="flex flex-wrap justify-center gap-6">
+            <div className="flex flex-col lg:flex-row flex-wrap lg:flex-nowrap justify-center items-stretch gap-6 w-full">
               {accessiblePortals.map((portal) => {
                 const Icon = portal.icon;
                 return (
                   <Link 
                     key={portal.id} 
                     href={portal.href} 
-                    className={`w-full max-w-sm sm:w-[260px] lg:w-[280px] group bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl ${portal.borderHover} transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden transform hover:-translate-y-1`}
+                    className={`flex-1 min-w-[260px] max-w-sm group bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl ${portal.borderHover} transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden transform hover:-translate-y-1 mx-auto lg:mx-0 w-full`}
                   >
                     <div 
                       className="absolute top-0 left-0 w-full h-1 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"
@@ -211,7 +219,7 @@ export default function RoleSelectionPage() {
       </main>
 
       {/* Footer */}
-      <footer className="text-center py-6 text-sm text-gray-400">
+      <footer className="text-center py-6 text-sm text-gray-400 border-t border-gray-200 mt-auto bg-white">
         © {new Date().getFullYear()} LokNidhi Platform. Government of India.
       </footer>
     </div>
