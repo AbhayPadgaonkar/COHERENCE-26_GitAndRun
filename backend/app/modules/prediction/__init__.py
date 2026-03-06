@@ -1,22 +1,40 @@
 """Prediction Module for fund lapse and spending forecasts"""
 from typing import List, Optional
 from app.database.schemas import FundLapsePredictionCreate, FundLapsePredictionResponse
+from app.core.firebase import FirebaseConfig
+from app.core.logger import logger
 from datetime import datetime, timedelta
 
 
 class FundLapsePredictionRepository:
     """Repository for predictions"""
     
+    COLLECTION_NAME = "predictions"
+    
     def __init__(self):
+        self.firebase = FirebaseConfig.get_db()
         self.predictions = []
         self.id_counter = 1
     
     def create_prediction(self, prediction: FundLapsePredictionCreate) -> dict:
         """Store a prediction"""
         pred_dict = {
-            "id": self.id_counter,
+            "created_at": datetime.now().isoformat(),
             **prediction.model_dump()
         }
+        
+        # Try Firebase
+        if self.firebase:
+            try:
+                doc_ref = self.firebase.collection(self.COLLECTION_NAME).add(pred_dict)
+                pred_dict["document_id"] = doc_ref[1].id
+                logger.info(f"Prediction created in Firebase: {doc_ref[1].id}")
+                return pred_dict
+            except Exception as e:
+                logger.warning(f"Firebase error: {e}, using fallback")
+        
+        # Fallback: in-memory
+        pred_dict["id"] = self.id_counter
         self.predictions.append(pred_dict)
         self.id_counter += 1
         return pred_dict
