@@ -2,20 +2,20 @@ import React from 'react';
 import { 
   LayoutDashboard, 
   Building, 
-  Stethoscope, 
-  GraduationCap, 
+  HeartPulse, 
+  BookOpen, 
   HardHat, 
-  Sprout,
+  Tractor,
   ArrowRight,
   Activity,
-  Users,
-  AlertTriangle
+  LineChart,
+  ShieldAlert
 } from 'lucide-react';
 import Link from 'next/link';
 
-export default function DistrictGateway() {
+export default function CentralGateway() {
   return (
-    <div className="min-h-screen bg-[#f8fafc] font-sans selection:bg-[#000080] selection:text-white pb-20">
+    <div className="min-h-screen bg-[#f8fafc] font-sans selection:bg-[#FF9933] selection:text-white pb-20">
       
       {/* The EXACT Glassmorphism Navbar */}
       <header className="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100">
@@ -33,8 +33,8 @@ export default function DistrictGateway() {
             />
             <div className="border-l-2 border-gray-200 pl-3 sm:pl-4">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-[#000080] tracking-tight">LokNidhi</h1>
-              <p className="text-[9px] sm:text-xs text-[#ea580c] uppercase font-bold tracking-[0.1em] sm:tracking-[0.2em] mt-0.5">
-                District Authority Access
+              <p className="text-[9px] sm:text-xs text-[#FF9933] uppercase font-bold tracking-[0.1em] sm:tracking-[0.2em] mt-0.5">
+                Central Government Access
               </p>
             </div>
           </div>
@@ -56,34 +56,34 @@ export default function DistrictGateway() {
         {/* Sleek Welcome Header */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 pb-6 border-b border-gray-200">
           <div>
-            <h2 className="text-3xl font-extrabold text-[#000080] tracking-tight">Welcome, District Magistrate</h2>
-            <p className="text-gray-500 mt-1">Select your workspace to monitor block-level execution and beneficiary transfers.</p>
+            <h2 className="text-3xl font-extrabold text-[#000080] tracking-tight">Welcome, Central Authority</h2>
+            <p className="text-gray-500 mt-1">Select your workspace to monitor national budget utilization.</p>
           </div>
-          <div className="mt-4 md:mt-0 px-4 py-2 bg-red-50 text-red-800 rounded-lg border border-red-200 font-medium flex items-center shadow-sm">
-            <AlertTriangle className="w-4 h-4 mr-2 text-red-600 animate-pulse" />
-            1 Critical Fund Lapse Warning
+          <div className="mt-4 md:mt-0 px-4 py-2 bg-blue-50 text-[#000080] rounded-lg border border-blue-100 font-medium flex items-center shadow-sm">
+            <ShieldAlert className="w-4 h-4 mr-2 text-[#FF9933]" />
+            2 New Anomaly Alerts Detected
           </div>
         </div>
 
         {/* ================= OPTION 1: FULL WIDTH AGGREGATE HERO ================= */}
         <div className="mb-12 relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-[#ea580c] to-[#FF9933] rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+          <div className="absolute -inset-1 bg-gradient-to-r from-[#000080] to-[#FF9933] rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
           
-          <div className="relative bg-gradient-to-br from-[#c2410c] via-[#ea580c] to-[#9a3412] rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row">
+          <div className="relative bg-gradient-to-br from-[#000080] via-[#040466] to-[#01013a] rounded-3xl overflow-hidden shadow-xl flex flex-col md:flex-row">
             
             {/* Left side content */}
             <div className="p-8 md:p-12 md:w-2/3 relative z-10 flex flex-col justify-center">
               <div className="inline-flex items-center bg-white/10 border border-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider mb-6 w-fit backdrop-blur-sm">
                 Primary Workspace
               </div>
-              <h3 className="text-4xl font-extrabold text-white mb-4">District Aggregate Dashboard</h3>
-              <p className="text-orange-100 text-lg mb-8 max-w-xl font-light leading-relaxed">
-                Access your Zilla Parishad overview. Track incoming funds from the State Nodal Agency, monitor block-wise spending performance, and ensure Direct Benefit Transfers (DBT) reach citizens without leakage.
+              <h3 className="text-4xl font-extrabold text-white mb-4">National Aggregate Dashboard</h3>
+              <p className="text-blue-100 text-lg mb-8 max-w-xl font-light leading-relaxed">
+                Access the high-level national overview. View total budget allocations across all 28 states, aggregate idle funds, AI risk predictions, and intelligent reallocation strategies.
               </p>
               
-              <Link href="/district/main_dashboard" className="inline-flex items-center justify-center bg-white text-[#c2410c] hover:bg-gray-100 font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] transition-all transform hover:-translate-y-1 w-fit text-lg">
+              <Link href="/central/main_dashboard" className="inline-flex items-center justify-center bg-[#FF9933] hover:bg-orange-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(255,153,51,0.4)] hover:shadow-[0_0_25px_rgba(255,153,51,0.6)] transition-all transform hover:-translate-y-1 w-fit text-lg">
                 <LayoutDashboard className="w-6 h-6 mr-3" />
-                Enter District Dashboard
+                Enter Main Dashboard
               </Link>
             </div>
 
@@ -94,12 +94,12 @@ export default function DistrictGateway() {
               
               <div className="relative z-10 grid grid-cols-2 gap-4 w-full transform group-hover:scale-105 transition-transform duration-700">
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 shadow-lg flex flex-col items-center justify-center h-32">
-                  <Activity className="w-8 h-8 text-white mb-2" />
-                  <span className="text-white text-sm font-bold">Block Metrics</span>
+                  <Activity className="w-8 h-8 text-[#FF9933] mb-2" />
+                  <span className="text-white text-sm font-bold">Live Flow</span>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 shadow-lg flex flex-col items-center justify-center h-32 mt-8">
-                  <Users className="w-8 h-8 text-yellow-300 mb-2" />
-                  <span className="text-white text-sm font-bold">DBT Tracking</span>
+                  <LineChart className="w-8 h-8 text-green-400 mb-2" />
+                  <span className="text-white text-sm font-bold">Analytics</span>
                 </div>
               </div>
             </div>
@@ -111,74 +111,74 @@ export default function DistrictGateway() {
           <div className="flex justify-between items-end mb-6 px-2">
             <div>
               <h3 className="text-2xl font-bold text-gray-900 flex items-center">
-                <Building className="w-6 h-6 mr-3 text-[#ea580c]" />
-                Local Office Deep Dive
+                <Building className="w-6 h-6 mr-3 text-[#000080]" />
+                Department Deep Dive
               </h3>
-              <p className="text-gray-500 mt-1 ml-9">Select a specific district office to audit vendor payments and local scheme execution.</p>
+              <p className="text-gray-500 mt-1 ml-9">Select a specific ministry to track individual scheme allocations.</p>
             </div>
             
-            <Link href="/dashboard/district/departments" className="hidden sm:flex items-center text-[#ea580c] font-semibold hover:text-[#000080] transition-colors">
-              View All District Offices <ArrowRight className="w-4 h-4 ml-1" />
+            <Link href="/dashboard/central/departments" className="hidden sm:flex items-center text-[#000080] font-semibold hover:text-[#FF9933] transition-colors">
+              View All 42 Departments <ArrowRight className="w-4 h-4 ml-1" />
             </Link>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             
-            {/* Dept: Chief Medical Officer */}
-            <Link href="/dashboard/district/dept/health" className="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden">
+            {/* Dept: Health */}
+            <Link href="/dashboard/central/dept/health" className="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-red-500 scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></div>
               <div className="w-14 h-14 bg-red-50 text-red-600 rounded-xl flex items-center justify-center mb-6 group-hover:bg-red-500 group-hover:text-white transition-colors duration-300">
-                <Stethoscope className="w-7 h-7" />
+                <HeartPulse className="w-7 h-7" />
               </div>
-              <h4 className="text-lg font-bold text-gray-900 mb-1">Chief Medical Office</h4>
-              <p className="text-sm text-gray-500 mb-4 line-clamp-2">Audit district hospital procurements, CHC/PHC funding, and local health camp budgets.</p>
+              <h4 className="text-lg font-bold text-gray-900 mb-1">Ministry of Health</h4>
+              <p className="text-sm text-gray-500 mb-4 line-clamp-2">Monitor NHM, Ayushman Bharat, and state medical infrastructure grants.</p>
               <div className="text-red-600 font-semibold text-sm flex items-center mt-auto">
                 Open Analytics <ArrowRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </div>
             </Link>
 
-            {/* Dept: District Education Office */}
-            <Link href="/dashboard/district/dept/education" className="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden">
+            {/* Dept: Education */}
+            <Link href="/dashboard/central/dept/education" className="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-blue-500 scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></div>
               <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-6 group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300">
-                <GraduationCap className="w-7 h-7" />
+                <BookOpen className="w-7 h-7" />
               </div>
-              <h4 className="text-lg font-bold text-gray-900 mb-1">Dist. Education Office</h4>
-              <p className="text-sm text-gray-500 mb-4 line-clamp-2">Track block-wise school grants, teacher salary disbursements, and mid-day meal vendor logs.</p>
+              <h4 className="text-lg font-bold text-gray-900 mb-1">Ministry of Education</h4>
+              <p className="text-sm text-gray-500 mb-4 line-clamp-2">Track Samagra Shiksha, PM POSHAN, and higher education allocations.</p>
               <div className="text-blue-600 font-semibold text-sm flex items-center mt-auto">
                 Open Analytics <ArrowRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </div>
             </Link>
 
-            {/* Dept: Rural Works / Infrastructure */}
-            <Link href="/dashboard/district/dept/infrastructure" className="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden">
+            {/* Dept: Infrastructure */}
+            <Link href="/dashboard/central/dept/infrastructure" className="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500 scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></div>
               <div className="w-14 h-14 bg-yellow-50 text-yellow-600 rounded-xl flex items-center justify-center mb-6 group-hover:bg-yellow-500 group-hover:text-white transition-colors duration-300">
                 <HardHat className="w-7 h-7" />
               </div>
-              <h4 className="text-lg font-bold text-gray-900 mb-1">Rural Works Dept</h4>
-              <p className="text-sm text-gray-500 mb-4 line-clamp-2">Monitor local PMGSY road contractor payments, water supply schemes, and village infrastructure.</p>
+              <h4 className="text-lg font-bold text-gray-900 mb-1">Infrastructure</h4>
+              <p className="text-sm text-gray-500 mb-4 line-clamp-2">Analyze PMGSY, Smart Cities Mission, and national highway fund flows.</p>
               <div className="text-yellow-600 font-semibold text-sm flex items-center mt-auto">
                 Open Analytics <ArrowRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </div>
             </Link>
 
-            {/* Dept: Block Development / Agriculture */}
-            <Link href="/dashboard/district/dept/agriculture" className="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden">
+            {/* Dept: Agriculture */}
+            <Link href="/dashboard/central/dept/agriculture" className="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-green-500 scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300"></div>
               <div className="w-14 h-14 bg-green-50 text-green-600 rounded-xl flex items-center justify-center mb-6 group-hover:bg-green-500 group-hover:text-white transition-colors duration-300">
-                <Sprout className="w-7 h-7" />
+                <Tractor className="w-7 h-7" />
               </div>
-              <h4 className="text-lg font-bold text-gray-900 mb-1">Dist. Agriculture Office</h4>
-              <p className="text-sm text-gray-500 mb-4 line-clamp-2">Audit PM-KISAN local beneficiary lists, seed subsidy distributions, and equipment grants.</p>
+              <h4 className="text-lg font-bold text-gray-900 mb-1">Rural & Agriculture</h4>
+              <p className="text-sm text-gray-500 mb-4 line-clamp-2">Monitor PM-KISAN distributions, MGNREGA wages, and rural development.</p>
               <div className="text-green-600 font-semibold text-sm flex items-center mt-auto">
                 Open Analytics <ArrowRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </div>
             </Link>
             
             {/* Mobile View All Button */}
-            <Link href="/dashboard/district/departments" className="sm:hidden w-full flex items-center justify-center py-4 bg-white border border-gray-200 rounded-xl text-[#ea580c] font-bold shadow-sm">
-              View All District Offices <ArrowRight className="w-4 h-4 ml-2" />
+            <Link href="/dashboard/central/departments" className="sm:hidden w-full flex items-center justify-center py-4 bg-white border border-gray-200 rounded-xl text-[#000080] font-bold shadow-sm">
+              View All 42 Departments <ArrowRight className="w-4 h-4 ml-2" />
             </Link>
 
           </div>

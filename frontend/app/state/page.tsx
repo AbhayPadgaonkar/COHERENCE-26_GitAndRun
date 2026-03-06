@@ -81,7 +81,7 @@ export default function StateGateway() {
                 Access the high-level state overview. View total scheme allocations distributed across all districts, track State Nodal Agency (SNA) idle balances, and monitor AI-driven local leakage alerts.
               </p>
               
-              <Link href="/dashboard/state/main" className="inline-flex items-center justify-center bg-white text-[#138808] hover:bg-gray-100 font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] transition-all transform hover:-translate-y-1 w-fit text-lg">
+              <Link href="/state/main_dashboard" className="inline-flex items-center justify-center bg-white text-[#138808] hover:bg-gray-100 font-bold py-4 px-8 rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] transition-all transform hover:-translate-y-1 w-fit text-lg">
                 <LayoutDashboard className="w-6 h-6 mr-3" />
                 Enter State Dashboard
               </Link>
