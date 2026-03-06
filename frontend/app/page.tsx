@@ -7,6 +7,8 @@ import {
   LogIn,
   ArrowRight
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export default function LokNidhiLanding() {
   return (
@@ -60,9 +62,11 @@ export default function LokNidhiLanding() {
           <nav className="hidden md:flex items-center space-x-8 font-semibold text-gray-600">
             <a href="#about" className="hover:text-[#FF9933] transition-colors">About Platform</a>
             <a href="#architecture" className="hover:text-[#FF9933] transition-colors">Architecture</a>
-            <button className="flex items-center px-6 py-2.5 bg-[#000080] text-white rounded-lg hover:bg-blue-900 shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5">
+            <Link href="auth/login">
+            <Button className="flex items-center px-6 py-2.5 bg-[#000080] text-white rounded-lg hover:bg-blue-900 shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5">
               Login Portal <LogIn className="ml-2 w-4 h-4" />
-            </button>
+            </Button>
+            </Link>
           </nav>
         </div>
       </header>
@@ -72,7 +76,7 @@ export default function LokNidhiLanding() {
         {/* Decorative background elements */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20">
           <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[#FF9933] blur-3xl mix-blend-screen"></div>
-          <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full bg-[#138808] blur-3xl mix-blend-screen"></div>
+          <div className="absolute bottom-0 right-0 w-125 h-[500px] rounded-full bg-[#138808] blur-3xl mix-blend-screen"></div>
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
         </div>
         
@@ -97,8 +101,8 @@ export default function LokNidhiLanding() {
             </p>
             
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-              <a href="/role-based" className="flex justify-center items-center px-8 py-3.5 bg-[#FF9933] text-white font-bold rounded-lg shadow-[0_0_20px_rgba(255,153,51,0.4)] hover:bg-orange-500 hover:shadow-[0_0_25px_rgba(255,153,51,0.6)] transition-all duration-300">
-                Choose Role <ArrowRight className="ml-2 w-5 h-5" />
+              <a href="/auth/login" className="flex justify-center items-center px-8 py-3.5 bg-[#FF9933] text-white font-bold rounded-lg shadow-[0_0_20px_rgba(255,153,51,0.4)] hover:bg-orange-500 hover:shadow-[0_0_25px_rgba(255,153,51,0.6)] transition-all duration-300">
+                Sign In <ArrowRight className="ml-2 w-5 h-5" />
               </a>
               <button className="flex justify-center items-center px-8 py-3.5 bg-white/10 backdrop-blur-md border border-white/30 text-white font-bold rounded-lg hover:bg-white/20 transition-all duration-300">
                 Read Documentation
