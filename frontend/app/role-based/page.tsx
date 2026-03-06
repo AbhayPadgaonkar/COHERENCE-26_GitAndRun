@@ -166,16 +166,16 @@ export default function RoleSelectionPage() {
             )}
           </div>
 
-          {/* Dynamic Role Cards Grid */}
+          {/* Dynamic Role Cards - NOW USING FLEXBOX FOR PERFECT CENTERING */}
           {accessiblePortals.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 justify-center">
+            <div className="flex flex-wrap justify-center gap-6">
               {accessiblePortals.map((portal) => {
                 const Icon = portal.icon;
                 return (
                   <Link 
                     key={portal.id} 
                     href={portal.href} 
-                    className={`group bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl ${portal.borderHover} transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden transform hover:-translate-y-1`}
+                    className={`w-full max-w-sm sm:w-[260px] lg:w-[280px] group bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl ${portal.borderHover} transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden transform hover:-translate-y-1`}
                   >
                     <div 
                       className="absolute top-0 left-0 w-full h-1 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"
