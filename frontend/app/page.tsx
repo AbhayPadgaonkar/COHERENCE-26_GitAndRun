@@ -60,7 +60,7 @@ export default function LokNidhiLanding() {
           </div>
           
           <nav className="hidden md:flex items-center space-x-8 font-semibold text-gray-600">
-            <a href="#about" className="hover:text-[#FF9933] transition-colors">About Platform</a>
+            <a href="/rti" className="hover:text-[#FF9933] transition-colors">Right to Information page</a>
             <a href="#architecture" className="hover:text-[#FF9933] transition-colors">Architecture</a>
             <Link href="auth/login">
             <Button className="flex items-center px-6 py-2.5 bg-[#000080] text-white rounded-lg hover:bg-blue-900 shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5">
