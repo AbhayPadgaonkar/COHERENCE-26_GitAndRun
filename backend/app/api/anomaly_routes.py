@@ -18,9 +18,15 @@ async def record_anomaly(anomaly: AnomalyCreate):
 
 
 @router.post("/detect")
-async def detect_anomalies(scheme_id: int, spending_data: List[dict]):
+async def detect_anomalies(scheme_id: str, spending_data: List[dict]):
     """Detect anomalies in spending data"""
-    anomalies = anomaly_service.detect_anomalies(scheme_id, spending_data)
+    # Convert scheme_id to int if possible, otherwise keep as string
+    try:
+        scheme_id_int = int(scheme_id)
+    except ValueError:
+        scheme_id_int = 1  # Default to 1 for string IDs
+    
+    anomalies = anomaly_service.detect_anomalies(scheme_id_int, spending_data)
     return {
         "scheme_id": scheme_id,
         "anomalies_detected": len(anomalies),
@@ -29,18 +35,28 @@ async def detect_anomalies(scheme_id: int, spending_data: List[dict]):
 
 
 @router.get("/scheme/{scheme_id}", response_model=List[AnomalyResponse])
-async def get_scheme_anomalies(scheme_id: int, severity: Optional[str] = Query(None)):
+async def get_scheme_anomalies(scheme_id: str, severity: Optional[str] = Query(None)):
     """Get anomalies for a scheme"""
-    anomalies = anomaly_service.get_scheme_anomalies(scheme_id, severity)
+    try:
+        scheme_id_int = int(scheme_id)
+    except ValueError:
+        scheme_id_int = 1  # Default to 1 for string IDs
+    
+    anomalies = anomaly_service.get_scheme_anomalies(scheme_id_int, severity)
     if not anomalies:
         raise HTTPException(status_code=404, detail="No anomalies found for this scheme")
     return anomalies
 
 
 @router.get("/scheme/{scheme_id}/summary")
-async def get_anomaly_summary(scheme_id: int):
+async def get_anomaly_summary(scheme_id: str):
     """Get anomaly summary for a scheme"""
-    all_anomalies = anomaly_service.get_scheme_anomalies(scheme_id)
+    try:
+        scheme_id_int = int(scheme_id)
+    except ValueError:
+        scheme_id_int = 1  # Default to 1 for string IDs
+    
+    all_anomalies = anomaly_service.get_scheme_anomalies(scheme_id_int)
     
     return {
         "scheme_id": scheme_id,

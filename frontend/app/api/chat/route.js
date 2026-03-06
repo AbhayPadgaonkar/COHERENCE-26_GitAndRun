@@ -10,7 +10,7 @@ export async function POST(req) {
     // 2. Initialize Gemini AI securely on the server
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     // Using gemini-1.5-flash as it is fast and excellent for text tasks
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     // 3. Construct the prompt by injecting your RTI data
     const prompt = `
@@ -37,7 +37,7 @@ export async function POST(req) {
 
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return new Response(JSON.stringify({ error: "Failed to fetch response from AI." }), { 
+    return new Response(JSON.stringify({ error: "Failed to fetch response from AI." }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
