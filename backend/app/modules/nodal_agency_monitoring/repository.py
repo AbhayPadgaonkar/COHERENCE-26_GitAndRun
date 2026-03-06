@@ -26,10 +26,12 @@ class NodalAgencyRepository:
         # Try to save to Firebase
         if self.firebase:
             try:
-                doc_ref = self.firebase.collection(self.COLLECTION_NAME).add(agency_data)
-                agency_data["document_id"] = doc_ref[1].id
+                # Add id before storing in Firebase
                 agency_data["id"] = self.id_counter
                 self.id_counter += 1
+                
+                doc_ref = self.firebase.collection(self.COLLECTION_NAME).add(agency_data)
+                agency_data["document_id"] = doc_ref[1].id
                 logger.info(f"Agency created in Firebase: {doc_ref[1].id}")
                 return agency_data
             except Exception as e:
@@ -57,7 +59,7 @@ class NodalAgencyRepository:
         # Fallback: in-memory storage
         return next((a for a in self.agencies if a.get("id") == agency_id), None)
     
-    def get_agencies_by_scheme(self, scheme_id: int) -> List[dict]:
+    def get_agencies_by_scheme(self, scheme_id: str) -> List[dict]:
         """Get all nodal agencies for a scheme"""
         # Try Firebase
         if self.firebase:
@@ -79,7 +81,7 @@ class NodalAgencyRepository:
     
     def update_agency_balance(
         self, 
-        agency_id: int, 
+        agency_id,  # Can be int (id field) or str (document_id)
         new_balance: float,
         last_transaction_date: datetime,
         transaction_type: str = "credit",
@@ -89,10 +91,17 @@ class NodalAgencyRepository:
         # Try Firebase
         if self.firebase:
             try:
-                # Find document by agency_id
-                docs = self.firebase.collection(self.COLLECTION_NAME).where('id', '==', agency_id).stream()
-                for doc in docs:
-                    doc_ref = self.firebase.collection(self.COLLECTION_NAME).document(doc.id)
+                # If agency_id is a string, assume it's a document_id
+                if isinstance(agency_id, str):
+                    logger.info(f"Updating agency by document_id: {agency_id}")
+                    doc_ref = self.firebase.collection(self.COLLECTION_NAME).document(agency_id)
+                    
+                    # Check if document exists
+                    doc_snapshot = doc_ref.get()
+                    if not doc_snapshot.exists:
+                        logger.error(f"Document {agency_id} does not exist in Firebase")
+                        raise ValueError(f"Agency document {agency_id} not found in Firebase")
+                    
                     update_data = {
                         "current_balance": new_balance,
                         "last_transaction_date": last_transaction_date.isoformat(),
@@ -110,10 +119,37 @@ class NodalAgencyRepository:
                     
                     # Return updated data
                     updated = doc_ref.get().to_dict()
-                    updated["document_id"] = doc.id
+                    updated["document_id"] = agency_id
                     return updated
+                else:
+                    # If agency_id is an int, search by 'id' field
+                    logger.info(f"Updating agency by id field: {agency_id}")
+                    docs = self.firebase.collection(self.COLLECTION_NAME).where('id', '==', agency_id).stream()
+                    for doc in docs:
+                        doc_ref = self.firebase.collection(self.COLLECTION_NAME).document(doc.id)
+                        update_data = {
+                            "current_balance": new_balance,
+                            "last_transaction_date": last_transaction_date.isoformat(),
+                            "last_transaction_type": transaction_type.upper(),
+                            "updated_at": datetime.utcnow().isoformat()
+                        }
+                        
+                        if transaction_type.lower() == "credit":
+                            update_data["last_credit_amount"] = transaction_amount
+                        else:
+                            update_data["last_debit_amount"] = transaction_amount
+                        
+                        doc_ref.update(update_data)
+                        logger.info(f"Updated agency {agency_id} balance to ₹{new_balance}")
+                        
+                        # Return updated data
+                        updated = doc_ref.get().to_dict()
+                        updated["document_id"] = doc.id
+                        return updated
             except Exception as e:
-                logger.warning(f"Firebase error: {e}, using fallback")
+                logger.error(f"Firebase update error for agency {agency_id}: {type(e).__name__}: {e}")
+                # Don't fallback, re-raise the error
+                raise
         
         # Fallback: in-memory storage
         for agency in self.agencies:
