@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 // Import Firebase auth and firestore methods
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from "@/database/firebase"; // Adjust this path to match your initialization file
+import { auth, db } from "@/database/firebase"; // Adjust this path
 
 import {
   Shield,
@@ -48,13 +48,11 @@ export default function LokNidhiSignup() {
     role: "",
     stateCode: "",
     districtCode: "",
-    blockCode: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Helper to update specific fields in the state object
   const updateForm = (updates: Partial<typeof formValues>) => {
     setFormValues((prev) => ({ ...prev, ...updates }));
   };
@@ -63,30 +61,25 @@ export default function LokNidhiSignup() {
   const selectedRoleData = formData.roles.find((r) => r.id === formValues.role);
   const requiresLocation = selectedRoleData?.requires_location;
 
-  const showState = ["STATE", "DISTRICT", "BLOCK"].includes(requiresLocation as string);
-  const showDistrict = ["DISTRICT", "BLOCK"].includes(requiresLocation as string);
-  const showBlock = requiresLocation === "BLOCK";
+  const showState = ["STATE", "DISTRICT"].includes(requiresLocation as string);
+  const showDistrict = requiresLocation === "DISTRICT";
 
   // Filter Geography Options
   const availableDistricts = useMemo(() => {
     return formData.geography.find((s) => s.state_code === formValues.stateCode)?.districts || [];
   }, [formValues.stateCode]);
 
-  const availableBlocks = useMemo(() => {
-    return availableDistricts.find((d) => d.district_code === formValues.districtCode)?.blocks || [];
-  }, [formValues.districtCode, availableDistricts]);
-
   // Handlers to reset child fields when parents change
   const handleRoleChange = (val: string) => {
-    updateForm({ role: val, stateCode: "", districtCode: "", blockCode: "" });
+    updateForm({ role: val, stateCode: "", districtCode: "" });
   };
 
   const handleStateChange = (val: string) => {
-    updateForm({ stateCode: val, districtCode: "", blockCode: "" });
+    updateForm({ stateCode: val, districtCode: "" });
   };
 
   const handleDistrictChange = (val: string) => {
-    updateForm({ districtCode: val, blockCode: "" });
+    updateForm({ districtCode: val });
   };
 
   // Firebase Sign Up & Firestore Handler
@@ -94,7 +87,6 @@ export default function LokNidhiSignup() {
     e.preventDefault();
     setError("");
     
-    // Basic validation
     if (!formValues.email || !formValues.password || !formValues.fullName || !formValues.role) {
       setError("Please fill in all required fields.");
       return;
@@ -102,7 +94,6 @@ export default function LokNidhiSignup() {
 
     setLoading(true);
     try {
-      // 1. Create the user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
         auth, 
         formValues.email, 
@@ -110,8 +101,6 @@ export default function LokNidhiSignup() {
       );
       const user = userCredential.user;
 
-      // 2. Save the extra data to Firestore
-      // Storing the user data in a "users" collection, using their Auth UID as the document ID
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         fullName: formValues.fullName,
@@ -121,14 +110,13 @@ export default function LokNidhiSignup() {
         jurisdiction: {
           stateCode: formValues.stateCode,
           districtCode: formValues.districtCode,
-          blockCode: formValues.blockCode,
         },
         createdAt: new Date().toISOString(),
         isActive: true
       });
 
       console.log("User successfully created and saved to Firestore:", user.uid);
-      router.push("/role-based")
+      router.push("/role-based");
       
     } catch (err: any) {
       console.error(err);
@@ -271,20 +259,20 @@ export default function LokNidhiSignup() {
                   </Select>
                 </div>
 
-                {formValues.role === "DISTRICT_DDO" && (
-                  <div className="bg-blue-50/50 p-3 rounded-md border border-blue-100 flex items-start space-x-2">
-                    <Info className="w-4 h-4 text-[#000080] mt-0.5 shrink-0" />
+                {formValues.role === "CENTRAL_DEPT" && (
+                  <div className="bg-purple-50/50 p-3 rounded-md border border-purple-100 flex items-start space-x-2">
+                    <Info className="w-4 h-4 text-[#8B5CF6] mt-0.5 shrink-0" />
                     <p className="text-xs text-gray-600 leading-relaxed">
-                      <span className="font-semibold text-[#000080]">District DDO Logic:</span> You receive funds from the CNA (Case 1) or State DDO (Case 3), and disburse to lower-level Blocks.
+                      <span className="font-semibold text-[#8B5CF6]">Central Department Logic:</span> You oversee nationwide allocations strictly for your selected department and disburse funds down to State Authorities.
                     </p>
                   </div>
                 )}
 
-                {formValues.role === "BLOCK_DDO" && (
+                {formValues.role === "DISTRICT_DDO" && (
                   <div className="bg-green-50/50 p-3 rounded-md border border-green-100 flex items-start space-x-2">
                     <Info className="w-4 h-4 text-[#138808] mt-0.5 shrink-0" />
                     <p className="text-xs text-gray-600 leading-relaxed">
-                      <span className="font-semibold text-[#138808]">Block DDO Logic:</span> You are the lowest node. You receive funds from District DDOs or directly from CNAs (Case 2) and disburse strictly to external Vendors.
+                      <span className="font-semibold text-[#138808]">District Authority Logic:</span> You are the local nodal point. You receive funds from State DDOs or Central Agencies and manage end-mile utilization.
                     </p>
                   </div>
                 )}
@@ -335,27 +323,6 @@ export default function LokNidhiSignup() {
                       </div>
                     )}
 
-                    {showBlock && (
-                      <div className="space-y-2">
-                        <Label htmlFor="block">Block</Label>
-                        <Select value={formValues.blockCode} onValueChange={(val) => updateForm({ blockCode: val })} disabled={!formValues.districtCode} required={showBlock}>
-                          <SelectTrigger id="block" className="w-full bg-white">
-                            <SelectValue placeholder="Select Block" />
-                          </SelectTrigger>
-                          <SelectContent className="w-full bg-white z-50 max-h-60">
-                             {availableBlocks.length === 0 ? (
-                               <p className="p-2 text-sm text-gray-500">No blocks available for this district.</p>
-                            ) : (
-                              availableBlocks.map((block: any) => (
-                                <SelectItem key={block.block_code} value={block.block_code}>
-                                  {block.block_name}
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
