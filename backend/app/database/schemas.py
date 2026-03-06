@@ -75,7 +75,7 @@ class SchemeResponse(SchemeBase):
 class FundFlowBase(BaseModel):
     """Fund Flow Tracking with PFMS Integration and Installment Tracking"""
     # Identification
-    scheme_id: int
+    scheme_id: str  # Firebase document ID (string) or legacy int ID
     fund_flow_reference: str             # Unique reference number
     
     # Hierarchy
@@ -136,7 +136,13 @@ class FundFlowCreate(FundFlowBase):
 
 class FundFlowResponse(FundFlowBase):
     id: int
+    document_id: Optional[str] = None  # Firebase document ID
     created_at: datetime
+    
+    # Auto-integration fields
+    nodal_agency_updated: Optional[bool] = None
+    nodal_agency_id: Optional[str] = None
+    nodal_agency_error: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -343,7 +349,7 @@ class NodalAgencyAccountBase(BaseModel):
     ifsc_code: str
     
     # Scheme Association
-    scheme_id: int
+    scheme_id: str  # Firebase document ID (string) or legacy int ID
     scheme_code: str
     
     # Geographic

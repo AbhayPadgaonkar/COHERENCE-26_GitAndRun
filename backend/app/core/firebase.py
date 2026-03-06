@@ -4,7 +4,11 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 import os
 import json
+from dotenv import load_dotenv
 from app.core.logger import logger
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class FirebaseConfig:
@@ -27,10 +31,17 @@ class FirebaseConfig:
             # Get Firebase credentials from environment or file
             firebase_cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
             
+            # If relative path, make it absolute from backend directory
+            if firebase_cred_path and not os.path.isabs(firebase_cred_path):
+                # Get the backend directory (parent of app directory)
+                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+                firebase_cred_path = os.path.join(backend_dir, firebase_cred_path)
+            
             if firebase_cred_path and os.path.exists(firebase_cred_path):
                 cred = credentials.Certificate(firebase_cred_path)
                 cls._app = firebase_admin.initialize_app(cred)
-                logger.info(f"Firebase initialized from {firebase_cred_path}")
+                logger.info(f"✅ Firebase initialized successfully from {firebase_cred_path}")
+                logger.info(f"🔥 Connected to project: {cred.project_id}")
             else:
                 # Try to get credentials from environment variable
                 firebase_cred_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
@@ -38,19 +49,20 @@ class FirebaseConfig:
                     cred_dict = json.loads(firebase_cred_json)
                     cred = credentials.Certificate(cred_dict)
                     cls._app = firebase_admin.initialize_app(cred)
-                    logger.info("Firebase initialized from environment JSON")
+                    logger.info("✅ Firebase initialized from environment JSON")
                 else:
-                    logger.warning("Firebase credentials not configured - using emulator or mock mode")
+                    logger.warning("⚠️  Firebase credentials not configured - using in-memory fallback")
+                    logger.warning(f"   Looked for: {firebase_cred_path}")
                     cls._app = None
                     return None
             
             cls._db = firestore.client()
-            logger.info("Firebase Firestore client initialized successfully")
+            logger.info("🔥 Firebase Firestore client ready!")
             return cls._db
             
         except Exception as e:
-            logger.error(f"Firebase initialization error: {str(e)}")
-            logger.warning("Proceeding without Firebase - using in-memory storage")
+            logger.error(f"❌ Firebase initialization error: {str(e)}")
+            logger.warning("⚠️  Proceeding without Firebase - using in-memory storage")
             return None
     
     @classmethod
