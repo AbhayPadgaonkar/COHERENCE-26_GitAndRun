@@ -1,0 +1,32 @@
+# ========================
+# CRITICAL SECURITY FILES
+# ========================
+# Never commit your Firebase credentials!
+serviceAccountKey.json
+
+# If you ever use environment variables in the future
+.env
+.env.local
+
+# ========================
+# PYTHON SPECIFIC
+# ========================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+env/
+.venv/
+
+# ========================
+# OS & IDE FILES
+# ========================
+# Mac OS folder attributes
+.DS_Store
+
+# VS Code / JetBrains PyCharm settings
+.vscode/
+.idea/
