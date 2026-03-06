@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { 
   Building2, 
   Map, 
@@ -9,7 +9,6 @@ import {
   ArrowRight,
   Lock,
   Network,
-  Home,
   Loader2
 } from 'lucide-react';
 import Link from 'next/link';
@@ -19,21 +18,19 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/database/firebase'; // Adjust path as needed
 
-// 1. Define Role Hierarchy Weights
-// Higher number = Higher access level
+// 1. Define Role Hierarchy Weights (Updated for 4 Tiers)
 const ROLE_WEIGHTS: Record<string, number> = {
-  "CENTRAL_ADMIN": 5,
-  "CNA_OFFICER": 4,
-  "STATE_DDO": 3,
-  "DISTRICT_DDO": 2,
-  "BLOCK_DDO": 1,
+  "CENTRAL_ADMIN": 4,
+  "CENTRAL_DEPT": 3,
+  "STATE_DDO": 2,
+  "DISTRICT_DDO": 1,
 };
 
 // 2. Define Portal Cards Configuration
 const PORTAL_CARDS = [
   {
     id: "central",
-    title: "Central Government",
+    title: "Central Administration",
     description: "National budget overview, cross-state allocation tracking, and high-level anomaly detection.",
     icon: Building2,
     href: "/dashboard/central",
@@ -41,23 +38,23 @@ const PORTAL_CARDS = [
     bgClass: "bg-orange-50",
     textClass: "text-[#FF9933]",
     borderHover: "hover:border-[#FF9933]",
-    requiredWeight: 5
+    requiredWeight: 4
   },
   {
-    id: "cna",
-    title: "Central Nodal Agency",
-    description: "Scheme-specific fund routing, vendor mapping, and direct block-level disbursement control.",
+    id: "central_dept",
+    title: "Central Department",
+    description: "Scheme-specific fund routing, vendor mapping, and state-level disbursement control.",
     icon: Network,
-    href: "/dashboard/cna",
+    href: "/dashboard/department",
     color: "#8B5CF6", // Purple
     bgClass: "bg-purple-50",
     textClass: "text-[#8B5CF6]",
     borderHover: "hover:border-[#8B5CF6]",
-    requiredWeight: 4
+    requiredWeight: 3
   },
   {
     id: "state",
-    title: "State Government",
+    title: "State Authority",
     description: "State-level nodal agency monitoring, district fund distribution, and scheme utilization analytics.",
     icon: Map,
     href: "/dashboard/state",
@@ -65,7 +62,7 @@ const PORTAL_CARDS = [
     bgClass: "bg-blue-50",
     textClass: "text-[#000080]",
     borderHover: "hover:border-[#000080]",
-    requiredWeight: 3
+    requiredWeight: 2
   },
   {
     id: "district",
@@ -77,18 +74,6 @@ const PORTAL_CARDS = [
     bgClass: "bg-green-50",
     textClass: "text-[#138808]",
     borderHover: "hover:border-[#138808]",
-    requiredWeight: 2
-  },
-  {
-    id: "block",
-    title: "Block Authority",
-    description: "Ground-level vendor payments, end-mile utilization logging, and immediate fund execution.",
-    icon: Home,
-    href: "/dashboard/block",
-    color: "#0891B2", // Cyan
-    bgClass: "bg-cyan-50",
-    textClass: "text-[#0891B2]",
-    borderHover: "hover:border-[#0891B2]",
     requiredWeight: 1
   }
 ];
@@ -115,7 +100,6 @@ export default function RoleSelectionPage() {
         }
       } else {
         // Handle unauthenticated state (e.g., redirect to login)
-        // window.location.href = "/login";
       }
       setLoading(false);
     });
@@ -123,7 +107,7 @@ export default function RoleSelectionPage() {
     return () => unsubscribe();
   }, []);
 
-  // Determine current user's access weight (default to 0 if none)
+  // Determine current user's access weight
   const userWeight = userRole ? ROLE_WEIGHTS[userRole] || 0 : 0;
 
   // Filter accessible portals based on hierarchy
@@ -184,7 +168,7 @@ export default function RoleSelectionPage() {
 
           {/* Dynamic Role Cards Grid */}
           {accessiblePortals.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 justify-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 justify-center">
               {accessiblePortals.map((portal) => {
                 const Icon = portal.icon;
                 return (
@@ -193,13 +177,11 @@ export default function RoleSelectionPage() {
                     href={portal.href} 
                     className={`group bg-white p-8 rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl ${portal.borderHover} transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden transform hover:-translate-y-1`}
                   >
-                    {/* Hover Top Border Animation */}
                     <div 
                       className="absolute top-0 left-0 w-full h-1 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300"
                       style={{ backgroundColor: portal.color }}
                     ></div>
                     
-                    {/* Icon Container */}
                     <div className={`w-16 h-16 ${portal.bgClass} ${portal.textClass} rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                       <Icon className="w-8 h-8" />
                     </div>
@@ -209,7 +191,6 @@ export default function RoleSelectionPage() {
                       {portal.description}
                     </p>
                     
-                    {/* Dynamic Footer Button */}
                     <div 
                       className={`mt-auto w-full flex items-center justify-center font-semibold text-sm group-hover:underline ${portal.textClass}`}
                     >

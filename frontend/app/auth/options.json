@@ -11,33 +11,9 @@
       "state_code": "MH",
       "state_name": "Maharashtra",
       "districts": [
-        {
-          "district_code": "MH-MUM",
-          "district_name": "Mumbai",
-          "blocks": [
-            { "block_code": "MUM-AND", "block_name": "Andheri" },
-            { "block_code": "MUM-BOR", "block_name": "Borivali" },
-            { "block_code": "MUM-COL", "block_name": "Colaba" },
-            { "block_code": "MUM-DAD", "block_name": "Dadar" }
-          ]
-        },
-        {
-          "district_code": "MH-PUN",
-          "district_name": "Pune",
-          "blocks": [
-            { "block_code": "PUN-HVL", "block_name": "Haveli" },
-            { "block_code": "PUN-MUL", "block_name": "Mulshi" },
-            { "block_code": "PUN-KHD", "block_name": "Khed" }
-          ]
-        },
-        {
-          "district_code": "MH-THA",
-          "district_name": "Thane",
-          "blocks": [
-            { "block_code": "THA-TNC", "block_name": "Thane City" },
-            { "block_code": "THA-KAL", "block_name": "Kalyan" }
-          ]
-        }
+        { "district_code": "MH-MUM", "district_name": "Mumbai" },
+        { "district_code": "MH-PUN", "district_name": "Pune" },
+        { "district_code": "MH-THA", "district_name": "Thane" }
       ]
     },
     { "state_code": "AP", "state_name": "Andhra Pradesh", "districts": [] },
@@ -77,10 +53,9 @@
     { "state_code": "PY", "state_name": "Puducherry", "districts": [] }
   ],
   "roles": [
-    { "id": "CENTRAL_ADMIN", "name": "Central Ministry Admin", "requires_location": false },
-    { "id": "CNA_OFFICER", "name": "Central Nodal Agency (CNA)", "requires_location": false },
-    { "id": "STATE_DDO", "name": "State Level DDO", "requires_location": "STATE" },
-    { "id": "DISTRICT_DDO", "name": "District Level DDO", "requires_location": "DISTRICT" },
-    { "id": "BLOCK_DDO", "name": "Block Level DDO", "requires_location": "BLOCK" }
+    { "id": "CENTRAL_ADMIN", "name": "Central Administration", "requires_location": false },
+    { "id": "CENTRAL_DEPT", "name": "Central Department", "requires_location": false },
+    { "id": "STATE_DDO", "name": "State Authority", "requires_location": "STATE" },
+    { "id": "DISTRICT_DDO", "name": "District Authority", "requires_location": "DISTRICT" }
   ]
 }
