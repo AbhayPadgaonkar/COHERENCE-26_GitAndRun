@@ -1,6 +1,8 @@
 """Anomaly Detection Module"""
 from typing import List, Optional
 from app.database.schemas import AnomalyCreate, AnomalyResponse
+from app.core.firebase import FirebaseConfig
+from app.core.logger import logger
 from datetime import datetime
 import statistics
 
@@ -8,22 +10,53 @@ import statistics
 class AnomalyRepository:
     """Repository for anomaly records"""
     
+    COLLECTION_NAME = "anomalies"
+    
     def __init__(self):
+        self.firebase = FirebaseConfig.get_db()
         self.anomalies = []
         self.id_counter = 1
     
     def create_anomaly(self, anomaly: AnomalyCreate) -> dict:
         """Record an anomaly"""
         anomaly_dict = {
-            "id": self.id_counter,
+            "created_at": datetime.now().isoformat(),
             **anomaly.model_dump()
         }
+        
+        # Try Firebase
+        if self.firebase:
+            try:
+                doc_ref = self.firebase.collection(self.COLLECTION_NAME).add(anomaly_dict)
+                anomaly_dict["document_id"] = doc_ref[1].id
+                logger.info(f"Anomaly created in Firebase: {doc_ref[1].id}")
+                return anomaly_dict
+            except Exception as e:
+                logger.warning(f"Firebase error: {e}, using fallback")
+        
+        # Fallback: in-memory
+        anomaly_dict["id"] = self.id_counter
         self.anomalies.append(anomaly_dict)
         self.id_counter += 1
         return anomaly_dict
     
     def get_anomalies_by_scheme(self, scheme_id: int) -> List[dict]:
         """Get anomalies for a scheme"""
+        # Try Firebase
+        if self.firebase:
+            try:
+                docs = self.firebase.collection(self.COLLECTION_NAME).where("scheme_id", "==", scheme_id).stream()
+                anomalies = []
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["document_id"] = doc.id
+                    anomalies.append(data)
+                if anomalies:
+                    return anomalies
+            except Exception as e:
+                logger.warning(f"Firebase error: {e}")
+        
+        # Fallback: in-memory
         return [a for a in self.anomalies if a.get("scheme_id") == scheme_id]
 
 

@@ -1,6 +1,9 @@
 """Optimization and Reallocation Module"""
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from app.database.schemas import ReallocationSuggestion, OptimizationResponse
+from app.core.firebase import FirebaseConfig
+from app.core.logger import logger
+from datetime import datetime
 
 
 class ConstraintSolver:

@@ -1,6 +1,8 @@
 """Analytics Module"""
-from typing import List, Dict
+from typing import List, Dict, Optional
 from datetime import datetime, timedelta
+from app.core.firebase import FirebaseConfig
+from app.core.logger import logger
 
 
 class SpendingPatternAnalyzer:
