@@ -32,8 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (loading) return; // Do nothing while verifying session
 
     // Define public routes (where unauthenticated users are allowed)
-    const isPublicRoute = pathname === "/" || pathname === "/login" || pathname === "/signup";
-
+    const isPublicRoute = pathname === "/" || pathname === "/auth/login" || pathname === "/auth/signup" || pathname === "/rti";
     if (!user && !isPublicRoute) {
       // If no user and trying to access a protected route -> send to Landing Page
       router.push("/");
