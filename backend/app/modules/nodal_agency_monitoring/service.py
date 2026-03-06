@@ -17,7 +17,7 @@ class NodalAgencyService:
     def __init__(self):
         self.repository = NodalAgencyRepository()
     
-    async def register_agency(self, agency: NodalAgencyAccountCreate) -> NodalAgencyAccount:
+    async def register_agency(self, agency: NodalAgencyAccountCreate) -> dict:
         """Register a new nodal agency with validation"""
         # TODO: Add validation logic:
         # - Validate agency_type is in NODAL_AGENCY_TYPES
@@ -107,7 +107,7 @@ class NodalAgencyService:
         agency_id: int,
         reason: str,
         flagged_by: str
-    ) -> NodalAgencyAccount:
+    ) -> dict:
         """Flag an agency for investigation"""
         return await self.repository.flag_agency(agency_id, reason, flagged_by)
     

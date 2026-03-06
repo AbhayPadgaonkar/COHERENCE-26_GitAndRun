@@ -26,6 +26,10 @@ class FundFlowRepository:
         # Try Firebase
         if self.firebase:
             try:
+                # Add id before storing in Firebase
+                flow_dict["id"] = self.id_counter
+                self.id_counter += 1
+                
                 doc_ref = self.firebase.collection(self.COLLECTION_NAME).add(flow_dict)
                 flow_dict["document_id"] = doc_ref[1].id
                 logger.info(f"Fund flow created in Firebase: {doc_ref[1].id}")
@@ -43,7 +47,7 @@ class FundFlowRepository:
         """Get flow by ID"""
         return next((f for f in self.flows if f["id"] == flow_id), None)
     
-    def list_flows(self, scheme_id: Optional[int] = None) -> List[dict]:
+    def list_flows(self, scheme_id: Optional[str] = None) -> List[dict]:
         """List flows, optionally filtered by scheme"""
         # Try Firebase
         if self.firebase:
@@ -93,16 +97,23 @@ class FundFlowService:
                 agency = self._get_or_create_nodal_agency(flow)
                 
                 if agency:
+                    logger.info(f"Agency object type: {type(agency)}, keys: {agency.keys() if isinstance(agency, dict) else 'Not a dict'}")
+                    
+                    # Use 'id' field if available, otherwise use document_id
+                    agency_id = agency.get("id") or agency.get("document_id")
+                    if not agency_id:
+                        raise ValueError("Agency has no 'id' or 'document_id' field")
+                    
                     # Update agency balance with credited amount
                     self.nodal_service.update_balance(
-                        agency_id=agency["id"],
+                        agency_id=agency_id,
                         transaction_type="credit",
                         transaction_amount=flow.amount,
                         transaction_reference=flow.fund_flow_reference
                     )
-                    logger.info(f"Auto-updated nodal agency {agency['id']} with ₹{flow.amount}")
+                    logger.info(f"Auto-updated nodal agency {agency_id} with ₹{flow.amount}")
                     flow_record["nodal_agency_updated"] = True
-                    flow_record["nodal_agency_id"] = agency["id"]
+                    flow_record["nodal_agency_id"] = str(agency_id)
             except Exception as e:
                 logger.error(f"Failed to auto-update nodal agency: {e}")
                 flow_record["nodal_agency_updated"] = False
@@ -150,17 +161,17 @@ class FundFlowService:
             logger.error(f"Error in _get_or_create_nodal_agency: {e}")
             return None
     
-    def get_fund_flow_path(self, scheme_id: int) -> List[dict]:
+    def get_fund_flow_path(self, scheme_id: str) -> List[dict]:
         """Get the complete flow path for a scheme"""
         flows = self.repository.list_flows(scheme_id)
         return sorted(flows, key=lambda x: x.get("transfer_date"))
     
-    def calculate_total_transferred(self, scheme_id: int) -> float:
+    def calculate_total_transferred(self, scheme_id: str) -> float:
         """Calculate total amount transferred for a scheme"""
         flows = self.repository.list_flows(scheme_id)
         return sum(f.get("amount", 0) for f in flows)
     
-    def get_fund_status_distribution(self, scheme_id: int) -> dict:
+    def get_fund_status_distribution(self, scheme_id: str) -> dict:
         """Get distribution of funds by status"""
         flows = self.repository.list_flows(scheme_id)
         status_dist = {}
@@ -169,7 +180,7 @@ class FundFlowService:
             status_dist[status] = status_dist.get(status, 0) + flow.get("amount", 0)
         return status_dist
     
-    def detect_fund_bottlenecks(self, scheme_id: int) -> List[dict]:
+    def detect_fund_bottlenecks(self, scheme_id: str) -> List[dict]:
         """Identify transfers taking longer than expected"""
         flows = self.repository.list_flows(scheme_id)
         bottlenecks = []
