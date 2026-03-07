@@ -1,41 +1,45 @@
 """
-LM Studio Client - OpenAI-compatible interface for local Qwen 3 4B
+Gemini Client - Google Generative AI interface
 """
 
-from openai import OpenAI
+import google.generativeai as genai
 from typing import Optional, List, Dict
 import os
 
 
 class LMStudioClient:
     """
-    Client for LM Studio with Qwen 3 4B model
-    Uses OpenAI-compatible API running locally
+    Client for Google Gemini model
     """
     
     def __init__(
         self,
-        base_url: str = "http://localhost:1234/v1",
-        model: str = "qwen/qwen3-4b",
+        api_key: Optional[str] = None,
+        model: str = "gemini-2.5-flash",
         temperature: float = 0.7,
         max_tokens: int = 1000
     ):
         """
-        Initialize LM Studio client
+        Initialize Gemini client
         
         Args:
-            base_url: LM Studio server URL (default: http://localhost:1234/v1)
-            model: Model identifier (default: qwen/qwen3-4b)
+            api_key: Google API key (reads from GEMINI_API_KEY env var if not provided)
+            model: Model identifier (default: gemini-2.0-flash-exp)
             temperature: Sampling temperature (0.0 to 1.0)
             max_tokens: Maximum tokens in response
         """
-        self.client = OpenAI(
-            base_url=base_url,
-            api_key="lm-studio"  # LM Studio doesn't require real API key
-        )
-        self.model = model
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        if not self.api_key:
+            raise ValueError("Gemini API key must be provided or set in GEMINI_API_KEY environment variable")
+        
+        genai.configure(api_key=self.api_key)
+        self.model = model  # Keep as 'model' for compatibility
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self._genai_model = genai.GenerativeModel(model)
+        
+        # For backward compatibility with status checks
+        self.base_url = "https://generativelanguage.googleapis.com"
     
     def generate(
         self,
@@ -45,7 +49,7 @@ class LMStudioClient:
         max_tokens: Optional[int] = None
     ) -> str:
         """
-        Generate text completion from LM Studio
+        Generate text completion from Gemini
         
         Args:
             prompt: User prompt/question
@@ -56,28 +60,23 @@ class LMStudioClient:
         Returns:
             Generated text response
         """
-        messages = []
-        
-        if system_message:
-            messages.append({
-                "role": "system",
-                "content": system_message
-            })
-        
-        messages.append({
-            "role": "user",
-            "content": prompt
-        })
-        
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
+            # Combine system message with prompt if provided
+            full_prompt = prompt
+            if system_message:
+                full_prompt = f"{system_message}\n\n{prompt}"
+            
+            generation_config = genai.GenerationConfig(
                 temperature=temperature or self.temperature,
-                max_tokens=max_tokens or self.max_tokens
+                max_output_tokens=max_tokens or self.max_tokens
             )
             
-            return response.choices[0].message.content.strip()
+            response = self._genai_model.generate_content(
+                full_prompt,
+                generation_config=generation_config
+            )
+            
+            return response.text.strip()
             
         except Exception as e:
             return f"Error generating response: {str(e)}"
@@ -99,48 +98,50 @@ class LMStudioClient:
         Returns:
             Generated text response
         """
-        messages = []
-        
-        if system_message:
-            messages.append({
-                "role": "system",
-                "content": system_message
-            })
-        
-        # Add conversation history
-        messages.extend(context)
-        
-        # Add current prompt
-        messages.append({
-            "role": "user",
-            "content": prompt
-        })
-        
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
+            # Build conversation history
+            conversation = []
+            if system_message:
+                conversation.append(f"System: {system_message}\n")
+            
+            for msg in context:
+                role = "User" if msg["role"] == "user" else "Assistant"
+                conversation.append(f"{role}: {msg['content']}\n")
+            
+            conversation.append(f"User: {prompt}\n")
+            conversation.append("Assistant:")
+            
+            full_prompt = "\n".join(conversation)
+            
+            generation_config = genai.GenerationConfig(
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_output_tokens=self.max_tokens
             )
             
-            return response.choices[0].message.content.strip()
+            response = self._genai_model.generate_content(
+                full_prompt,
+                generation_config=generation_config
+            )
+            
+            return response.text.strip()
             
         except Exception as e:
             return f"Error generating response: {str(e)}"
     
     def check_connection(self) -> bool:
         """
-        Check if LM Studio server is accessible
+        Check if Gemini API is accessible
         
         Returns:
-            True if server is running, False otherwise
+            True if API is accessible, False otherwise
         """
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": "test"}],
-                max_tokens=5
+            generation_config = genai.GenerationConfig(
+                max_output_tokens=5
+            )
+            response = self._genai_model.generate_content(
+                "test",
+                generation_config=generation_config
             )
             return True
         except Exception:

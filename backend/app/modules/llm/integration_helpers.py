@@ -124,14 +124,14 @@ async def add_explanations_to_anomalies(
             
             result = explainer.explain_multiple_anomalies(
                 anomalies=[{
-                    "anomaly_id": a.get("id") or a.get("anomaly_id"),
-                    "type": a.get("type"),
-                    "amount": a.get("amount"),
-                    "scheme_name": a.get("scheme_name") or a.get("scheme"),
-                    "confidence": a.get("confidence", 0.0),
-                    "severity": a.get("severity"),
+                    "anomaly_id": a.get("id") or a.get("anomaly_id") or a.get("document_id"),
+                    "type": a.get("type") or a.get("anomaly_type", "unknown"),
+                    "amount": a.get("amount", 0),
+                    "scheme_name": a.get("scheme_name") or a.get("scheme") or f"Scheme {a.get('scheme_id', 'Unknown')}",
+                    "confidence": a.get("confidence") or a.get("confidence_score", 0.0),
+                    "severity": a.get("severity", "unknown"),
                     "baseline": a.get("baseline"),
-                    "details": a.get("details", {})
+                    "details": a.get("details") or {"description": a.get("description", "")}
                 } for a in anomalies]
             )
             
@@ -159,14 +159,14 @@ async def add_explanations_to_anomalies(
             
             for anomaly in anomalies:
                 result = explainer.explain_anomaly({
-                    "anomaly_id": anomaly.get("id") or anomaly.get("anomaly_id"),
-                    "type": anomaly.get("type"),
-                    "amount": anomaly.get("amount"),
-                    "scheme_name": anomaly.get("scheme_name") or anomaly.get("scheme"),
-                    "confidence": anomaly.get("confidence", 0.0),
-                    "severity": anomaly.get("severity"),
+                    "anomaly_id": anomaly.get("id") or anomaly.get("anomaly_id") or anomaly.get("document_id"),
+                    "type": anomaly.get("type") or anomaly.get("anomaly_type", "unknown"),
+                    "amount": anomaly.get("amount", 0),
+                    "scheme_name": anomaly.get("scheme_name") or anomaly.get("scheme") or f"Scheme {anomaly.get('scheme_id', 'Unknown')}",
+                    "confidence": anomaly.get("confidence") or anomaly.get("confidence_score", 0.0),
+                    "severity": anomaly.get("severity", "unknown"),
                     "baseline": anomaly.get("baseline"),
-                    "details": anomaly.get("details", {})
+                    "details": anomaly.get("details") or {"description": anomaly.get("description", "")}
                 })
                 
                 anomaly["ai_explanation"] = result["explanation"]
@@ -321,14 +321,17 @@ def _generate_fallback_explanation(anomaly: Dict) -> str:
     Not as good as LLM, but better than nothing for government employees
     """
     
-    anomaly_type = anomaly.get("type", "unknown")
+    anomaly_type = anomaly.get("type") or anomaly.get("anomaly_type", "unknown")
     severity = anomaly.get("severity", "unknown")
     scheme = anomaly.get("scheme_name") or anomaly.get("scheme", "Unknown Scheme")
     amount = anomaly.get("amount", 0)
     
-    # Format amount in Crore
-    amount_cr = amount / 10000000  # Convert to Crore
-    amount_str = f"₹{amount_cr:.2f} Crore"
+    # Format amount in Crore (handle None values)
+    if amount is not None and amount > 0:
+        amount_cr = amount / 10000000  # Convert to Crore
+        amount_str = f"₹{amount_cr:.2f} Crore"
+    else:
+        amount_str = "undisclosed amount"
     
     # Simple template-based explanations
     if anomaly_type == "sudden_spike":
