@@ -1,13 +1,21 @@
 """Analytics Routes - RBAC handled by frontend"""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from app.modules.analytics import AnalyticsService
 from app.modules.llm.integration_helpers import add_dashboard_summary
-from typing import List, Dict
+from app.core.firebase import FirebaseConfig
+from app.core.logger import logger
+from typing import List, Dict, Any
+from collections import defaultdict
 
 router = APIRouter(prefix="/analytics", responses={404: {"description": "Not found"}})
 
 # Initialize service
 analytics_service = AnalyticsService()
+
+# -beta collection names (same as frontend/seed)
+SCHEMES_BETA = "schemes-beta"
+FUND_FLOWS_BETA = "fund_flows-beta"
+BENEFICIARY_PAYMENTS_BETA = "beneficiary_payments-beta"
 
 
 # ============= LEGACY ENDPOINTS (kept for backward compatibility) =============
@@ -193,6 +201,96 @@ async def get_district_dashboard(district_id: str):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching district dashboard: {str(e)}")
+
+
+@router.get("/charts/beta")
+async def get_charts_beta(
+    role: str = Query(None, description="Filter by role: CENTRAL_ADMIN, CENTRAL_DEPT, STATE_DDO, DISTRICT_DDO"),
+    department: str = Query(None),
+    state_code: str = Query(None),
+    district_code: str = Query(None),
+):
+    """
+    Fetch -beta collections from Firestore, run analytics, return chart-ready data.
+    Frontend uses this for graphs/charts. RBAC filtering via query params.
+    """
+    db = FirebaseConfig.get_db()
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase not connected")
+    try:
+        schemes_ref = db.collection(SCHEMES_BETA)
+        flows_ref = db.collection(FUND_FLOWS_BETA)
+        payments_ref = db.collection(BENEFICIARY_PAYMENTS_BETA)
+
+        schemes_snap = list(schemes_ref.stream())
+        flows_snap = list(flows_ref.stream())
+        payments_snap = list(payments_ref.stream())
+
+        schemes = [{"id": d.id, **d.to_dict()} for d in schemes_snap]
+        flows = [{"id": d.id, **d.to_dict()} for d in flows_snap]
+        payments = [{"id": d.id, **d.to_dict()} for d in payments_snap]
+
+        # Optional role/department/geography filter (same logic as frontend useBetaData)
+        if role and role != "CENTRAL_ADMIN" and department:
+            scheme_ids = {s["id"] for s in schemes if s.get("department_id") == department}
+            legacy_ids = {s.get("legacy_id") for s in schemes if s.get("department_id") == department and s.get("legacy_id")}
+            schemes = [s for s in schemes if s.get("department_id") == department]
+            flows = [f for f in flows if f.get("scheme_id") in scheme_ids or str(f.get("scheme_id")) in scheme_ids]
+            payments = [p for p in payments if p.get("scheme_id") in legacy_ids or p.get("department_id") == department]
+        if state_code:
+            flows = [f for f in flows if (f.get("to_entity_code") or "").startswith(state_code) or (f.get("from_entity_code") or "").startswith(state_code) or state_code in (f.get("to_entity_code") or "")]
+            payments = [p for p in payments if (p.get("state_code") or "").endswith(state_code) or (p.get("district_code") or "").startswith(state_code)]
+        if district_code:
+            flows = [f for f in flows if f.get("to_entity_code") == district_code or f.get("from_entity_code") == district_code]
+            payments = [p for p in payments if p.get("district_code") == district_code]
+
+        # Analytics: budget by scheme (₹ Cr)
+        budget_by_scheme = []
+        for s in schemes:
+            name = (s.get("scheme_code") or s.get("name") or s["id"])[:16]
+            budget = float(s.get("budget_allocated") or 0) / 1e7
+            budget_by_scheme.append({"name": name, "budget_cr": round(budget, 2), "scheme_id": s["id"]})
+
+        # Payments by district (₹ Lakhs)
+        by_district: Dict[str, float] = defaultdict(float)
+        for p in payments:
+            key = p.get("district") or p.get("district_code") or "Other"
+            by_district[key] += float(p.get("payment_amount") or 0)
+        payments_by_district = [{"name": k[:14], "value_lakhs": round(v / 1e5, 2)} for k, v in sorted(by_district.items(), key=lambda x: -x[1])]
+
+        # Fund flows by route (from_level → to_level, ₹ Cr)
+        by_route: Dict[str, float] = defaultdict(float)
+        for f in flows:
+            route = f"{f.get('from_level', '')} → {f.get('to_level', '')}"
+            by_route[route] += float(f.get("amount") or 0)
+        fund_flows_by_route = [{"route": k, "amount_cr": round(v / 1e7, 2)} for k, v in sorted(by_route.items(), key=lambda x: -x[1])]
+
+        # Latest disbursements (most recent first)
+        flows_sorted = sorted(flows, key=lambda x: x.get("created_at") or x.get("transfer_date") or "", reverse=True)
+        payments_sorted = sorted(payments, key=lambda x: x.get("created_at") or x.get("payment_date") or "", reverse=True)
+        latest_fund_flows = flows_sorted[:15]
+        latest_payments = payments_sorted[:15]
+
+        return {
+            "success": True,
+            "charts": {
+                "budget_by_scheme": budget_by_scheme,
+                "payments_by_district": payments_by_district,
+                "fund_flows_by_route": fund_flows_by_route,
+            },
+            "latest": {
+                "fund_flows": latest_fund_flows,
+                "payments": latest_payments,
+            },
+            "counts": {
+                "schemes": len(schemes),
+                "fund_flows": len(flows),
+                "payments": len(payments),
+            },
+        }
+    except Exception as e:
+        logger.exception("charts/beta error")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/dashboard/summary")

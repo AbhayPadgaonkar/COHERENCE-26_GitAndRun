@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/database/firebase";
 import { COLLECTIONS_BETA, STATE_CODE_FULL, type UserProfile } from "./collections-beta";
 
@@ -78,47 +78,6 @@ function matchesState(code: string, stateCode: string) {
   return code === stateCode || code === STATE_CODE_FULL || code === `IN-${stateCode}`;
 }
 
-function filterByRole<T>(
-  items: T[],
-  user: UserProfile,
-  getEntityCode: (item: T) => string,
-  getDistrictCode: (item: T) => string | undefined,
-  getStateCode: (item: T) => string | undefined,
-  getDeptId: (item: T) => string | undefined
-): T[] {
-  if (!user.role) return items;
-  switch (user.role) {
-    case "CENTRAL_ADMIN":
-      return items;
-    case "CENTRAL_DEPT":
-      if (user.department) {
-        return items.filter((i) => getDeptId(i) === user.department || !getDeptId(i));
-      }
-      return items;
-    case "STATE_DDO":
-      if (!user.stateCode) return items;
-      return items.filter((i) => {
-        const code = getEntityCode(i);
-        const dist = getDistrictCode(i);
-        const state = getStateCode(i);
-        return (
-          matchesState(code, user.stateCode!) ||
-          matchesState(state || "", user.stateCode!) ||
-          (dist && dist.startsWith(user.stateCode!))
-        );
-      });
-    case "DISTRICT_DDO":
-      if (!user.districtCode) return items;
-      return items.filter(
-        (i) =>
-          getEntityCode(i) === user.districtCode ||
-          getDistrictCode(i) === user.districtCode
-      );
-    default:
-      return items;
-  }
-}
-
 export function useBetaData(userProfile: UserProfile | null) {
   const [schemes, setSchemes] = useState<SchemeBeta[]>([]);
   const [fundFlows, setFundFlows] = useState<FundFlowBeta[]>([]);
@@ -149,14 +108,12 @@ export function useBetaData(userProfile: UserProfile | null) {
         id: d.id,
         ...d.data(),
       })) as SchemeBeta[];
-      const flowsList: FundFlowBeta[] = flowsSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as FundFlowBeta[];
-      const paymentsList: BeneficiaryPaymentBeta[] = paymentsSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as BeneficiaryPaymentBeta[];
+      const flowsList: FundFlowBeta[] = (
+        flowsSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as FundFlowBeta[]
+      ).sort((a, b) => (b.created_at || b.transfer_date || "").localeCompare(a.created_at || a.transfer_date || ""));
+      const paymentsList: BeneficiaryPaymentBeta[] = (
+        paymentsSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as BeneficiaryPaymentBeta[]
+      ).sort((a, b) => (b.created_at || b.payment_date || "").localeCompare(a.created_at || a.payment_date || ""));
       const anomaliesList: AnomalyBeta[] = anomaliesSnap.docs.map((d) => ({
         id: d.id,
         ...d.data(),
@@ -166,70 +123,94 @@ export function useBetaData(userProfile: UserProfile | null) {
         ...d.data(),
       })) as NodalAgencyBeta[];
 
-      if (userProfile) {
-        setSchemes(
-          filterByRole(
-            schemesList,
-            userProfile,
-            () => "",
-            () => undefined,
-            () => undefined,
-            (s) => (s as SchemeBeta).department_id
-          )
-        );
-        setFundFlows(
-          filterByRole(
-            flowsList,
-            userProfile,
-            (f) => f.to_entity_code,
-            (f) => (f.to_level === "District" ? f.to_entity_code : undefined),
-            () => f.to_entity_code,
-            () => undefined
-          )
-        );
-        setPayments(
-          filterByRole(
-            paymentsList,
-            userProfile,
-            (p) => p.district_code,
-            (p) => p.district_code,
-            (p) => p.state_code,
-            (p) => p.department_id
-          )
-        );
-        setAnomalies(
-          filterByRole(
-            anomaliesList,
-            userProfile,
-            () => "",
-            () => undefined,
-            () => undefined,
-            (a) => (a as AnomalyBeta).department_id
-          )
-        );
-        setNodalAgencies(
-          filterByRole(
-            agenciesList,
-            userProfile,
-            (n) => n.state_code,
-            () => undefined,
-            (n) => n.state_code,
-            (n) => n.department_id
-          )
-        );
-      } else {
+      if (!userProfile?.role) {
         setSchemes(schemesList);
         setFundFlows(flowsList);
         setPayments(paymentsList);
         setAnomalies(anomaliesList);
         setNodalAgencies(agenciesList);
+        return;
       }
+
+      const isCentralAdmin = userProfile.role === "CENTRAL_ADMIN";
+      const isCentralDept = userProfile.role === "CENTRAL_DEPT";
+      const isStateDdo = userProfile.role === "STATE_DDO";
+      const isDistrictDdo = userProfile.role === "DISTRICT_DDO";
+
+      // 1. Schemes: CENTRAL_ADMIN sees all; others only their department
+      let filteredSchemes = schemesList;
+      if (!isCentralAdmin && userProfile.department) {
+        filteredSchemes = schemesList.filter((s) => s.department_id === userProfile.department);
+      }
+      const schemeIds = new Set(filteredSchemes.map((s) => s.id));
+      const legacyIds = new Set(filteredSchemes.map((s) => s.legacy_id).filter(Boolean));
+
+      // 2. Flows: only schemes in scope; then by role geography
+      let filteredFlows = isCentralAdmin ? flowsList : flowsList.filter((f) => schemeIds.has(f.scheme_id));
+      if (isStateDdo && userProfile.stateCode) {
+        filteredFlows = filteredFlows.filter(
+          (f) =>
+            matchesState(f.from_entity_code, userProfile.stateCode!) ||
+            matchesState(f.to_entity_code, userProfile.stateCode!) ||
+            (f.to_entity_code && f.to_entity_code.startsWith(userProfile.stateCode!))
+        );
+      }
+      if (isDistrictDdo && userProfile.districtCode) {
+        filteredFlows = filteredFlows.filter(
+          (f) => f.to_entity_code === userProfile.districtCode || f.from_entity_code === userProfile.districtCode
+        );
+      }
+
+      // 3. Payments: by department (and geography for state/district)
+      let filteredPayments = paymentsList;
+      if (!isCentralAdmin) {
+        filteredPayments = paymentsList.filter(
+          (p) => p.department_id === userProfile.department || (p.scheme_id && legacyIds.has(p.scheme_id))
+        );
+      }
+      if (isStateDdo && userProfile.stateCode) {
+        filteredPayments = filteredPayments.filter(
+          (p) => matchesState(p.state_code || "", userProfile.stateCode!) || (p.district_code && p.district_code.startsWith(userProfile.stateCode!))
+        );
+      }
+      if (isDistrictDdo && userProfile.districtCode) {
+        filteredPayments = filteredPayments.filter((p) => p.district_code === userProfile.districtCode);
+      }
+
+      // 4. Anomalies: by department; CENTRAL_ADMIN sees all
+      let filteredAnomalies = anomaliesList;
+      if (!isCentralAdmin && userProfile.department) {
+        filteredAnomalies = anomaliesList.filter((a) => a.department_id === userProfile.department);
+      }
+
+      // 5. Nodal agencies: by department and state for state DDO
+      let filteredAgencies = agenciesList;
+      if (!isCentralAdmin && userProfile.department) {
+        filteredAgencies = agenciesList.filter((n) => n.department_id === userProfile.department);
+      }
+      if (isStateDdo && userProfile.stateCode) {
+        filteredAgencies = filteredAgencies.filter(
+          (n) => matchesState(n.state_code || "", userProfile.stateCode!)
+        );
+      }
+
+      setSchemes(filteredSchemes);
+      setFundFlows(filteredFlows);
+      setPayments(filteredPayments);
+      setAnomalies(filteredAnomalies);
+      setNodalAgencies(filteredAgencies);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to fetch beta data");
     } finally {
       setLoading(false);
     }
-  }, [userProfile?.uid, userProfile?.role, userProfile?.department, userProfile?.stateCode, userProfile?.districtCode]);
+  }, [
+    userProfile?.uid,
+    userProfile?.role,
+    userProfile?.department,
+    userProfile?.stateCode,
+    userProfile?.districtCode,
+  ]);
 
   useEffect(() => {
     fetchAll();

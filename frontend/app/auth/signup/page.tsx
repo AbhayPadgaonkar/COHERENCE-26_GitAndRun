@@ -69,9 +69,17 @@ export default function LokNidhiSignup() {
     return formData.geography.find((s) => s.state_code === formValues.stateCode)?.districts || [];
   }, [formValues.stateCode]);
 
+  const isCentralAdmin = formValues.role === "CENTRAL_ADMIN";
+  const showDepartment = !isCentralAdmin;
+
   // Handlers to reset child fields when parents change
   const handleRoleChange = (val: string) => {
-    updateForm({ role: val, stateCode: "", districtCode: "" });
+    updateForm({
+      role: val,
+      stateCode: "",
+      districtCode: "",
+      department: val === "CENTRAL_ADMIN" ? "" : formValues.department,
+    });
   };
 
   const handleStateChange = (val: string) => {
@@ -91,6 +99,10 @@ export default function LokNidhiSignup() {
       setError("Please fill in all required fields.");
       return;
     }
+    if (!isCentralAdmin && !formValues.department) {
+      setError("Please select your department.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -105,7 +117,7 @@ export default function LokNidhiSignup() {
         uid: user.uid,
         fullName: formValues.fullName,
         email: formValues.email,
-        department: formValues.department,
+        department: isCentralAdmin ? null : formValues.department,
         role: formValues.role,
         jurisdiction: {
           stateCode: formValues.stateCode,
@@ -217,21 +229,23 @@ export default function LokNidhiSignup() {
                     <Label htmlFor="password">Password</Label>
                     <Input id="password" type="password" value={formValues.password} onChange={(e) => updateForm({ password: e.target.value })} placeholder="••••••••" required minLength={6} />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Select value={formValues.department} onValueChange={(val) => updateForm({ department: val })}>
-                      <SelectTrigger id="department" className="w-full bg-white border-[#000080]/30">
-                        <SelectValue placeholder="Select your department" />
-                      </SelectTrigger>
-                      <SelectContent className="w-full bg-white z-50">
-                        {formData.departments.map((dept: any) => (
-                          <SelectItem key={dept.id} value={dept.id}>
-                            {dept.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {showDepartment && (
+                    <div className="space-y-2">
+                      <Label htmlFor="department">Department</Label>
+                      <Select value={formValues.department} onValueChange={(val) => updateForm({ department: val })} required={!isCentralAdmin}>
+                        <SelectTrigger id="department" className="w-full bg-white border-[#000080]/30">
+                          <SelectValue placeholder="Select your department" />
+                        </SelectTrigger>
+                        <SelectContent className="w-full bg-white z-50">
+                          {formData.departments.map((dept: any) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               </div>
 

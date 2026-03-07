@@ -32,9 +32,7 @@ async def record_beneficiary_payment(payment: BeneficiaryPaymentCreate):
 
 
 @router.post("/payment-beta", status_code=201)
-async def record_beneficiary_payment_beta(
-    body: Dict[str, Any] = Body(..., description="Payment fields matching seed schema (scheme_id, beneficiary_id, amount, district_code, etc.)"),
-):
+async def record_beneficiary_payment_beta(body: Dict[str, Any] = Body(...)):
     """Record a beneficiary/vendor payment into beneficiary_payments-beta. Same schema as seed for district-level disbursement."""
     db = FirebaseConfig.get_db()
     if not db:
@@ -44,19 +42,29 @@ async def record_beneficiary_payment_beta(
         if k not in body:
             raise HTTPException(status_code=400, detail=f"Missing required field: {k}")
     try:
-        body = dict(body)
-        body.setdefault("aadhaar_masked", "XXXX-XXXX-0000")
-        body.setdefault("mobile_number", "9999999999")
-        body.setdefault("bank_account_number", "")
-        body.setdefault("ifsc_code", "SBIN0001234")
-        body.setdefault("bank_name", "State Bank of India")
-        body.setdefault("payment_purpose", "Grant")
-        body.setdefault("payment_status", "BANK_CREDITED")
-        body.setdefault("created_by", "frontend")
-        body["created_at"] = datetime.utcnow().isoformat()
-        doc_ref = db.collection(BENEFICIARY_PAYMENTS_BETA).add(body)
-        return {"document_id": doc_ref[1].id, "message": "Payment recorded in beneficiary_payments-beta", **body}
+        data = dict(body)
+        sid = data["scheme_id"]
+        if isinstance(sid, str) and sid.isdigit():
+            data["scheme_id"] = int(sid)
+        elif not isinstance(sid, (int, float)):
+            data["scheme_id"] = sid  # keep string (e.g. Firestore doc id) if not numeric
+        data["payment_amount"] = float(data["payment_amount"])
+        data.setdefault("aadhaar_masked", "XXXX-XXXX-0000")
+        data.setdefault("mobile_number", "9999999999")
+        data.setdefault("bank_account_number", "")
+        data.setdefault("ifsc_code", "SBIN0001234")
+        data.setdefault("bank_name", "State Bank of India")
+        data.setdefault("payment_purpose", "Grant")
+        data.setdefault("payment_status", "BANK_CREDITED")
+        data.setdefault("created_by", "frontend")
+        data["created_at"] = datetime.utcnow().isoformat()
+        doc_ref = db.collection(BENEFICIARY_PAYMENTS_BETA).add(data)
+        from app.core.logger import logger
+        logger.info(f"Beneficiary payment saved to {BENEFICIARY_PAYMENTS_BETA}: {doc_ref[1].id}")
+        return {"document_id": doc_ref[1].id, "message": "Payment recorded in beneficiary_payments-beta", "ok": True}
     except Exception as e:
+        from app.core.logger import logger
+        logger.exception("payment-beta error")
         raise HTTPException(status_code=500, detail=str(e))
 
 
