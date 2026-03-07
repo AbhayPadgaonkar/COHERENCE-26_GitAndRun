@@ -30,13 +30,18 @@ class FirebaseConfig:
             
             # Get Firebase credentials from environment or file
             firebase_cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
-            
+            backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
             # If relative path, make it absolute from backend directory
             if firebase_cred_path and not os.path.isabs(firebase_cred_path):
-                # Get the backend directory (parent of app directory)
-                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
                 firebase_cred_path = os.path.join(backend_dir, firebase_cred_path)
-            
+
+            # Fallback: serviceAccountKey.json in backend directory
+            if not (firebase_cred_path and os.path.exists(firebase_cred_path)):
+                default_path = os.path.join(backend_dir, "serviceAccountKey.json")
+                if os.path.exists(default_path):
+                    firebase_cred_path = default_path
+
             if firebase_cred_path and os.path.exists(firebase_cred_path):
                 cred = credentials.Certificate(firebase_cred_path)
                 cls._app = firebase_admin.initialize_app(cred)

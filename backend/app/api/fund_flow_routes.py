@@ -1,10 +1,15 @@
 """Fund Flow Tracking Routes"""
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Header
 from app.database.schemas import FundFlowCreate, FundFlowResponse
 from app.modules.fund_flow_tracking import FundFlowService
-from typing import List
+from app.core.firebase import FirebaseConfig
+from typing import List, Optional
+from datetime import datetime
 
 router = APIRouter(prefix="/funds", responses={404: {"description": "Not found"}})
+
+# Beta collection name for frontend/manual disbursement (same as seed script)
+FUND_FLOWS_BETA = "fund_flows-beta"
 
 # Initialize service
 fund_flow_service = FundFlowService()
@@ -15,6 +20,21 @@ async def track_fund_movement(flow: FundFlowCreate):
     """Track a fund transfer between administrative levels"""
     result = fund_flow_service.track_fund_movement(flow)
     return result
+
+
+@router.post("/track-beta", status_code=201)
+async def track_fund_movement_beta(flow: FundFlowCreate):
+    """Track a fund transfer into -beta collection (same schema as seed). For frontend disbursement."""
+    db = FirebaseConfig.get_db()
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase not connected")
+    try:
+        flow_dict = flow.model_dump(mode="json")
+        flow_dict["created_at"] = datetime.utcnow().isoformat()
+        doc_ref = db.collection(FUND_FLOWS_BETA).add(flow_dict)
+        return {"document_id": doc_ref[1].id, "message": "Fund flow recorded in fund_flows-beta", **flow_dict}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/scheme/{scheme_id}/flow", response_model=List[FundFlowResponse])

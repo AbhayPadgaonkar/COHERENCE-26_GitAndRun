@@ -13,7 +13,9 @@
       "districts": [
         { "district_code": "MH-MUM", "district_name": "Mumbai" },
         { "district_code": "MH-PUN", "district_name": "Pune" },
-        { "district_code": "MH-THA", "district_name": "Thane" }
+        { "district_code": "MH-THA", "district_name": "Thane" },
+        { "district_code": "MH-NSK", "district_name": "Nashik" },
+        { "district_code": "MH-PGR", "district_name": "Palghar" }
       ]
     },
     { "state_code": "AP", "state_name": "Andhra Pradesh", "districts": [] },
@@ -43,9 +45,17 @@
     { "state_code": "UP", "state_name": "Uttar Pradesh", "districts": [] },
     { "state_code": "UK", "state_name": "Uttarakhand", "districts": [] },
     { "state_code": "WB", "state_name": "West Bengal", "districts": [] },
-    { "state_code": "AN", "state_name": "Andaman and Nicobar Islands", "districts": [] },
+    {
+      "state_code": "AN",
+      "state_name": "Andaman and Nicobar Islands",
+      "districts": []
+    },
     { "state_code": "CH", "state_name": "Chandigarh", "districts": [] },
-    { "state_code": "DN", "state_name": "Dadra and Nagar Haveli and Daman and Diu", "districts": [] },
+    {
+      "state_code": "DN",
+      "state_name": "Dadra and Nagar Haveli and Daman and Diu",
+      "districts": []
+    },
     { "state_code": "DL", "state_name": "Delhi", "districts": [] },
     { "state_code": "JK", "state_name": "Jammu and Kashmir", "districts": [] },
     { "state_code": "LA", "state_name": "Ladakh", "districts": [] },
@@ -53,9 +63,25 @@
     { "state_code": "PY", "state_name": "Puducherry", "districts": [] }
   ],
   "roles": [
-    { "id": "CENTRAL_ADMIN", "name": "Central Administration", "requires_location": false },
-    { "id": "CENTRAL_DEPT", "name": "Central Department", "requires_location": false },
-    { "id": "STATE_DDO", "name": "State Authority", "requires_location": "STATE" },
-    { "id": "DISTRICT_DDO", "name": "District Authority", "requires_location": "DISTRICT" }
+    {
+      "id": "CENTRAL_ADMIN",
+      "name": "Central Administration",
+      "requires_location": false
+    },
+    {
+      "id": "CENTRAL_DEPT",
+      "name": "Central Department",
+      "requires_location": false
+    },
+    {
+      "id": "STATE_DDO",
+      "name": "State Authority",
+      "requires_location": "STATE"
+    },
+    {
+      "id": "DISTRICT_DDO",
+      "name": "District Authority",
+      "requires_location": "DISTRICT"
+    }
   ]
 }

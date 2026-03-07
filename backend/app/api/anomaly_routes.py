@@ -3,9 +3,16 @@ from fastapi import APIRouter, HTTPException, Query
 from app.database.schemas import AnomalyCreate, AnomalyResponse
 from app.modules.anomaly_detection import AnomalyService
 from app.modules.anomaly_detection.feature_extractor import FeatureExtractor, AnomalyWindowAnalyzer
+from app.core.firebase import FirebaseConfig
 from typing import List, Optional
+from datetime import datetime
 
 router = APIRouter(prefix="/anomalies", responses={404: {"description": "Not found"}})
+
+# Beta collection names (same as seed script and frontend)
+FUND_FLOWS_BETA = "fund_flows-beta"
+BENEFICIARY_PAYMENTS_BETA = "beneficiary_payments-beta"
+ANOMALIES_BETA = "anomalies-beta"
 
 # Initialize service
 anomaly_service = AnomalyService()
@@ -212,6 +219,109 @@ async def detect_from_raw_transactions(
             status_code=500,
             detail=f"Anomaly detection error: {str(e)}"
         )
+
+
+@router.post("/detect-from-beta/{scheme_id}")
+async def detect_anomalies_from_beta(
+    scheme_id: int,
+    save_to_beta: bool = Query(True, description="Save detected anomalies to anomalies-beta"),
+):
+    """
+    Run anomaly detection using data from -beta Firestore collections.
+    Fetches fund_flows-beta and beneficiary_payments-beta for the given scheme_id (legacy_id),
+    runs comprehensive detection, and optionally saves results to anomalies-beta.
+    """
+    db = FirebaseConfig.get_db()
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase not connected")
+
+    try:
+        # Fetch beneficiary payments as spending/transaction data
+        payments_snap = db.collection(BENEFICIARY_PAYMENTS_BETA).where("scheme_id", "==", scheme_id).stream()
+        transactions = []
+        for i, doc in enumerate(payments_snap):
+            d = doc.to_dict()
+            pay_date = d.get("payment_date") or d.get("created_at")
+            if isinstance(pay_date, str):
+                pay_date = pay_date[:19] if "T" in pay_date else pay_date + "T00:00:00"
+            transactions.append({
+                "id": i + 1,
+                "amount": float(d.get("payment_amount", 0)),
+                "date": pay_date,
+                "scheme_id": scheme_id,
+                "status": "completed",
+            })
+
+        # Resolve scheme document id from schemes-beta by legacy_id (for fund_flows query)
+        scheme_doc_id = None
+        for doc in db.collection("schemes-beta").stream():
+            d = doc.to_dict()
+            if d.get("legacy_id") == scheme_id:
+                scheme_doc_id = doc.id
+                break
+
+        # Fetch fund flows as transfers (for idle_funds detection). scheme_id in flows is Firestore doc id.
+        transfers_raw = []
+        if scheme_doc_id:
+            for doc in db.collection(FUND_FLOWS_BETA).where("scheme_id", "==", scheme_doc_id).stream():
+                transfers_raw.append({**doc.to_dict(), "id": doc.id})
+
+        transfers = []
+        for t in transfers_raw:
+            td = t.get("transfer_date") or t.get("created_at")
+            if isinstance(td, str):
+                td = td[:19] if "T" in td else td + "T00:00:00"
+            transfers.append({
+                "id": t.get("fund_flow_reference") or t.get("id", ""),
+                "amount": float(t.get("amount", 0)),
+                "transfer_date": td,
+                "status": t.get("status", "transferred"),
+                "to_level": t.get("to_level", "District"),
+            })
+
+        if not transactions:
+            return {
+                "scheme_id": scheme_id,
+                "status": "success",
+                "message": "No transactions in beneficiary_payments-beta for this scheme",
+                "total_anomalies_detected": 0,
+                "anomalies": [],
+                "detector_details": {},
+            }
+
+        # Extract features and run comprehensive detection
+        extracted = feature_extractor.extract_features_from_transactions(transactions)
+        result = anomaly_service.detect_anomalies_comprehensive(
+            scheme_id=scheme_id,
+            spending_data=extracted,
+            transfers=transfers,
+        )
+
+        if save_to_beta and result.get("anomalies"):
+            ref = db.collection(ANOMALIES_BETA)
+            now = datetime.utcnow().isoformat()
+            for a in result["anomalies"]:
+                if isinstance(a, dict) and "anomaly_type" in a:
+                    ref.add({
+                        "scheme_id": scheme_id,
+                        "anomaly_type": a.get("anomaly_type"),
+                        "severity": a.get("severity", "warning"),
+                        "confidence_score": a.get("confidence_score", 0.8),
+                        "description": a.get("description", ""),
+                        "detected_date": a.get("detected_date", now),
+                        "created_at": now,
+                    })
+
+        return {
+            "scheme_id": scheme_id,
+            "status": "success",
+            "total_anomalies_detected": result.get("total_anomalies", 0),
+            "anomalies": result.get("anomalies", []),
+            "detector_details": result.get("detector_results", {}),
+            "saved_to_beta": save_to_beta,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Anomaly detection from beta error: {str(e)}")
 
 
 @router.post("/compare-periods/{scheme_id}")

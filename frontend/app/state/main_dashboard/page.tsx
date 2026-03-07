@@ -1,250 +1,270 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Building, 
-  HeartPulse, 
-  BookOpen, 
-  HardHat, 
-  Trees,
-  ArrowRight,
-  Activity,
-  LineChart,
-  ShieldAlert,
+import React, { useEffect, useState } from "react";
+import {
+  Building,
+  DollarSign,
   AlertCircle,
   TrendingUp,
-  DollarSign,
   Loader2,
-  MapPin
-} from 'lucide-react';
-import Link from 'next/link';
+  Send,
+  RefreshCw,
+  MapPin,
+} from "lucide-react";
+import Link from "next/link";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/database/firebase";
+import { useBetaData } from "@/lib/useBetaData";
+import { type UserProfile } from "@/lib/collections-beta";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis } from "recharts";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
-interface Scheme {
-  scheme_code: string;
-  scheme_name: string;
-  ministry: string;
-  budget_allocated: number;
-  scheme_type: string;
-  implementing_states?: string[];
-}
-
-interface Anomaly {
-  id: number;
-  scheme_id: number;
-  anomaly_type: string;
-  severity: string;
-  description: string;
-}
-
-interface NodalAgency {
-  id: number;
-  agency_name: string;
-  agency_type: string;
-  current_balance: number;
-  last_transaction_date: string;
-}
-
-export default function StateGateway() {
-  const [selectedState, setSelectedState] = useState('Maharashtra'); // Default state
-  const [schemes, setSchemes] = useState<Scheme[]>([]);
-  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
-  const [nodalAgencies, setNodalAgencies] = useState<NodalAgency[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalSchemes: 0,
-    totalBudget: 0,
-    districtAlerts: 5,
-    snaBalance: 0
-  });
+export default function StateMainDashboard() {
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const { schemes, fundFlows, payments, anomalies, nodalAgencies, loading, error, refetch } = useBetaData(userProfile);
 
   useEffect(() => {
-    fetchStateData();
-  }, [selectedState]);
-
-  const fetchStateData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch State-Specific Schemes
-      const schemesRes = await fetch(`${API_BASE_URL}/schemes/state/${selectedState}`);
-      if (schemesRes.ok) {
-        const schemesData = await schemesRes.json();
-        const schemesList = schemesData.schemes || [];
-        setSchemes(schemesList);
-
-        setStats(prev => ({
-          ...prev,
-          totalSchemes: schemesData.count || schemesList.length,
-          totalBudget: schemesData.total_budget || 0
-        }));
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setUserProfile(null);
+        return;
       }
-
-      // Fetch State Nodal Agencies
       try {
-        const snaRes = await fetch(`${API_BASE_URL}/nodal-agencies/idle-funds`);
-        if (snaRes.ok) {
-          const snaData = await snaRes.json();
-          const stateAgencies = snaData.filter((a: NodalAgency) => a.agency_type === 'SNA');
-          setNodalAgencies(stateAgencies);
-          
-          const totalSNABalance = stateAgencies.reduce((sum: number, a: NodalAgency) => sum + a.current_balance, 0);
-          setStats(prev => ({ ...prev, snaBalance: totalSNABalance }));
+        const snap = await getDoc(doc(db, "users", user.uid));
+        const d = snap.data();
+        if (d) {
+          setUserProfile({
+            uid: user.uid,
+            role: d.role || "STATE_DDO",
+            department: d.department,
+            stateCode: d.jurisdiction?.stateCode,
+            districtCode: d.jurisdiction?.districtCode,
+          });
+        } else {
+          setUserProfile({ uid: user.uid, role: "STATE_DDO" });
         }
-      } catch (err) {
-        console.log('No SNA data available');
+      } catch {
+        setUserProfile({ uid: user.uid, role: "STATE_DDO" });
       }
+    });
+    return () => unsub();
+  }, []);
 
-    } catch (error) {
-      console.error('Error fetching state data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const totalBudget = schemes.reduce((s, x) => s + (x.budget_allocated || 0), 0);
+  const districtFlows = fundFlows.filter((f) => f.to_level === "District");
+  const chartData = districtFlows.slice(0, 8).map((f) => ({
+    name: f.to_entity_name?.replace(" District DDO", "") || f.to_entity_code,
+    amount: Math.round((f.amount || 0) / 10000000),
+  }));
 
-  const formatCrores = (amount: number) => {
-    return `₹${(amount / 10000000).toFixed(2)} Cr`;
-  };
+  const formatCrores = (amount: number) => `₹${(amount / 10000000).toFixed(2)} Cr`;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] font-sans selection:bg-[#FF9933] selection:text-white pb-20">
-      
-      {/* Navbar */}
-      <header className="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100">
+    <div className="min-h-screen bg-[#f8fafc] pb-20">
+      <header className="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" 
-              alt="Satyameva Jayate" 
-              className="h-10 sm:h-12 w-auto drop-shadow-sm"
-            />
-            <img 
-              src="/PFMS-2.png" 
-              alt="PFMS Logo" 
-              className="h-8 sm:h-10 w-auto drop-shadow-sm"
-            />
-            <div className="border-l-2 border-gray-200 pl-3 sm:pl-4">
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#000080] tracking-tight">LokNidhi</h1>
-              <p className="text-[9px] sm:text-xs text-[#138808] uppercase font-bold tracking-[0.1em] sm:tracking-[0.2em] mt-0.5">
-                State Government Access
-              </p>
+          <div className="flex items-center space-x-3">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="" className="h-10 w-auto" />
+            <img src="/PFMS-2.png" alt="" className="h-8 w-auto" />
+            <div className="border-l-2 border-gray-200 pl-3">
+              <h1 className="text-xl font-extrabold text-[#000080]">LokNidhi</h1>
+              <p className="text-[9px] text-[#138808] uppercase font-bold">State Authority • Beta Data</p>
             </div>
           </div>
-          
-          <nav className="hidden md:flex items-center space-x-6 font-semibold text-gray-600">
-            <div className="flex items-center text-sm font-medium text-green-700 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
-              <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span> Active Session
-            </div>
-            <Link href="/login" className="text-sm text-gray-500 hover:text-red-600 transition-colors">
-              Switch Role
-            </Link>
-          </nav>
+          <Link href="/role-based" className="text-sm text-gray-500 hover:text-[#000080]">Switch Role</Link>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8 max-w-7xl">
-        
-        {/* Welcome Header */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 pb-6 border-b border-gray-200">
           <div>
-            <h2 className="text-3xl font-extrabold text-[#000080] tracking-tight">Welcome, State Authority</h2>
+            <h2 className="text-3xl font-extrabold text-[#000080]">Welcome, State Authority</h2>
             <p className="text-gray-500 mt-1 flex items-center">
               <MapPin className="w-4 h-4 mr-1" />
-              {selectedState} • State-level budget utilization and district distributions
+              {userProfile?.stateCode || "State"} • District fund distribution
             </p>
           </div>
-          <div className="mt-4 md:mt-0 px-4 py-2 bg-yellow-50 text-yellow-800 rounded-lg border border-yellow-200 font-medium flex items-center shadow-sm">
-            <ShieldAlert className="w-4 h-4 mr-2 text-yellow-600" />
-            {stats.districtAlerts} Districts Nearing Fund Lapse
-          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
 
-        {/* Stats Overview */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">{error}</div>
+        )}
+
         {loading ? (
           <div className="flex justify-center items-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-[#138808]" />
-            <span className="ml-3 text-gray-600">Loading state data...</span>
+            <Loader2 className="w-8 h-8 animate-spin text-[#000080]" />
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                    <Building className="w-6 h-6 text-green-600" />
-                  </div>
-                  <TrendingUp className="w-5 h-5 text-green-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{stats.totalSchemes}</h4>
-                <p className="text-sm text-gray-500 mt-1">State Schemes</p>
-              </div>
-
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <Activity className="w-5 h-5 text-blue-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{formatCrores(stats.totalBudget)}</h4>
-                <p className="text-sm text-gray-500 mt-1">State Budget</p>
-              </div>
-
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
-                    <AlertCircle className="w-6 h-6 text-yellow-600" />
-                  </div>
-                  <ShieldAlert className="w-5 h-5 text-yellow-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{stats.districtAlerts}</h4>
-                <p className="text-sm text-gray-500 mt-1">District Alerts</p>
-              </div>
-
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-                    <LineChart className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <Activity className="w-5 h-5 text-purple-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{nodalAgencies.length}</h4>
-                <p className="text-sm text-gray-500 mt-1">SNA Accounts</p>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Schemes</CardTitle>
+                </CardHeader>
+                <CardContent><div className="text-2xl font-bold">{schemes.length}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Total Budget</CardTitle>
+                </CardHeader>
+                <CardContent><div className="text-2xl font-bold">{formatCrores(totalBudget)}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">District Flows</CardTitle>
+                </CardHeader>
+                <CardContent><div className="text-2xl font-bold">{districtFlows.length}</div></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Nodal Agencies</CardTitle>
+                </CardHeader>
+                <CardContent><div className="text-2xl font-bold">{nodalAgencies.length}</div></CardContent>
+              </Card>
             </div>
 
-            {/* State Schemes List */}
-            {schemes.length > 0 && (
-              <div className="mb-12 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">{selectedState} State Schemes</h3>
-                  <Link href="/dashboard/state/schemes" className="text-[#138808] font-semibold text-sm hover:text-[#000080] transition-colors">
-                    View All →
-                  </Link>
-                </div>
-                <div className="space-y-3">
-                  {schemes.slice(0, 5).map((scheme, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{scheme.scheme_name}</h4>
-                        <p className="text-sm text-gray-500">{scheme.ministry} • {scheme.scheme_type}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-[#138808]">{formatCrores(scheme.budget_allocated)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {chartData.length > 0 && (
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle>Disbursement to Districts (₹ Cr)</CardTitle>
+                  <CardDescription>Fund flows to district DDOs</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={{ amount: { label: "Amount (Cr)" } }} className="h-[280px] w-full">
+                    <BarChart data={chartData} margin={{ left: 12, right: 12 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="amount" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
             )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Disburse to District</CardTitle>
+                <CardDescription>Record transfer to a district DDO (fund_flows-beta)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DisburseStateForm onSuccess={refetch} />
+              </CardContent>
+            </Card>
           </>
         )}
-
-        
       </main>
     </div>
+  );
+}
+
+function DisburseStateForm({ onSuccess }: { onSuccess: () => void }) {
+  const [schemeId, setSchemeId] = useState("");
+  const [districtCode, setDistrictCode] = useState("");
+  const [amount, setAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [schemes, setSchemes] = useState<{ id: string; name: string }[]>([]);
+  const districts = formData.geography.find((s: { state_code: string }) => s.state_code === "MH")?.districts || [];
+
+  useEffect(() => {
+    async function load() {
+      const { collection, getDocs } = await import("firebase/firestore");
+      const { db } = await import("@/database/firebase");
+      const snap = await getDocs(collection(db, "schemes-beta"));
+      setSchemes(snap.docs.map((d) => ({ id: d.id, name: (d.data().name as string) || d.id })));
+    }
+    load();
+  }, []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage("");
+    const amt = parseFloat(amount);
+    if (!schemeId || !districtCode || !amt || amt <= 0) {
+      setMessage("Select scheme, district and amount.");
+      return;
+    }
+    const dist = districts.find((d: { district_code: string }) => d.district_code === districtCode);
+    const distName = dist?.district_name || districtCode;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/funds/track-beta`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scheme_id: schemeId,
+          fund_flow_reference: `FF-STATE-${districtCode}-${Date.now()}`,
+          from_level: "State",
+          to_level: "District",
+          from_entity_code: "IN-MH",
+          to_entity_code: districtCode,
+          from_entity_name: "Maharashtra State DDO",
+          to_entity_name: `${distName} District DDO`,
+          amount: amt,
+          currency: "INR",
+          payment_mode: "NEFT",
+          sanction_date: new Date().toISOString(),
+          transfer_date: new Date().toISOString(),
+          credited_date: new Date().toISOString(),
+          status: "credited",
+          installment_number: 1,
+          total_installments: 1,
+          release_type: "FIRST_INSTALLMENT",
+        }),
+      });
+      if (res.ok) {
+        setAmount("");
+        setMessage("Recorded in fund_flows-beta.");
+        onSuccess();
+      } else {
+        setMessage(await res.text() || "Failed");
+      }
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-4 max-w-md">
+      <div>
+        <label className="block text-sm font-medium mb-1">Scheme</label>
+        <select value={schemeId} onChange={(e) => setSchemeId(e.target.value)} className="w-full border rounded px-3 py-2">
+          <option value="">Select</option>
+          {schemes.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">District</label>
+        <select value={districtCode} onChange={(e) => setDistrictCode(e.target.value)} className="w-full border rounded px-3 py-2">
+          <option value="">Select</option>
+          {districts.map((d: { district_code: string; district_name: string }) => (
+            <option key={d.district_code} value={d.district_code}>{d.district_name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Amount (INR)</label>
+        <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 10000000" className="w-full border rounded px-3 py-2" />
+      </div>
+      {message && <p className="text-sm text-gray-600">{message}</p>}
+      <Button type="submit" disabled={submitting}>
+        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+        Disburse to District
+      </Button>
+    </form>
   );
 }

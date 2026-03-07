@@ -1,17 +1,21 @@
 """Beneficiary Payment (DBT) Routes"""
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Body
 from app.database.schemas import (
     BeneficiaryPaymentCreate,
     BeneficiaryPaymentResponse,
     BeneficiaryPaymentSummary
 )
-from typing import List, Optional
+from app.core.firebase import FirebaseConfig
+from typing import List, Optional, Dict, Any
+from datetime import datetime
 
 router = APIRouter(
     prefix="/beneficiaries",
     tags=["Beneficiary Payments (DBT)"],
     responses={404: {"description": "Not found"}}
 )
+
+BENEFICIARY_PAYMENTS_BETA = "beneficiary_payments-beta"
 
 # Initialize service (TODO: Create BeneficiaryPaymentService)
 # beneficiary_service = BeneficiaryPaymentService()
@@ -25,6 +29,35 @@ async def record_beneficiary_payment(payment: BeneficiaryPaymentCreate):
         "message": "Beneficiary payment endpoint - implementation pending",
         "payment": payment.model_dump()
     }
+
+
+@router.post("/payment-beta", status_code=201)
+async def record_beneficiary_payment_beta(
+    body: Dict[str, Any] = Body(..., description="Payment fields matching seed schema (scheme_id, beneficiary_id, amount, district_code, etc.)"),
+):
+    """Record a beneficiary/vendor payment into beneficiary_payments-beta. Same schema as seed for district-level disbursement."""
+    db = FirebaseConfig.get_db()
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase not connected")
+    required = ["scheme_id", "beneficiary_id", "beneficiary_name", "payment_amount", "payment_date", "transaction_id", "state", "state_code", "district", "district_code"]
+    for k in required:
+        if k not in body:
+            raise HTTPException(status_code=400, detail=f"Missing required field: {k}")
+    try:
+        body = dict(body)
+        body.setdefault("aadhaar_masked", "XXXX-XXXX-0000")
+        body.setdefault("mobile_number", "9999999999")
+        body.setdefault("bank_account_number", "")
+        body.setdefault("ifsc_code", "SBIN0001234")
+        body.setdefault("bank_name", "State Bank of India")
+        body.setdefault("payment_purpose", "Grant")
+        body.setdefault("payment_status", "BANK_CREDITED")
+        body.setdefault("created_by", "frontend")
+        body["created_at"] = datetime.utcnow().isoformat()
+        doc_ref = db.collection(BENEFICIARY_PAYMENTS_BETA).add(body)
+        return {"document_id": doc_ref[1].id, "message": "Payment recorded in beneficiary_payments-beta", **body}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/scheme/{scheme_id}/payments", response_model=List[BeneficiaryPaymentResponse])
