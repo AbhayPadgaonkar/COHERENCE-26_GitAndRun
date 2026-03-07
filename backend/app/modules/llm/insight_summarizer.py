@@ -107,9 +107,10 @@ class InsightSummarizer:
         # Format top anomalies
         top_anomalies = []
         for anom in sorted(anomalies, key=lambda x: x.get("confidence", 0), reverse=True)[:5]:
+            amt = float(anom.get('amount') or 0)
             top_anomalies.append(
                 f"- {anom.get('type', 'Unknown').replace('_', ' ').title()}: "
-                f"₹{anom.get('amount', 0)/10000000:.2f} Crore "
+                f"₹{amt/10000000:.2f} Crore "
                 f"({anom.get('severity', 'info').upper()}, "
                 f"{anom.get('confidence', 0)*100:.0f}% confidence)"
             )

@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     FIREBASE_CREDENTIALS_JSON: Optional[str] = None
     DISABLE_FIREBASE_WARNINGS: bool = False
     
+    # LLM Configuration
+    GEMINI_API_KEY: Optional[str] = None
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

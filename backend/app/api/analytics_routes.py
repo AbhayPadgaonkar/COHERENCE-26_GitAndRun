@@ -1,6 +1,7 @@
 """Analytics Routes - RBAC handled by frontend"""
 from fastapi import APIRouter, HTTPException
 from app.modules.analytics import AnalyticsService
+from app.modules.llm.integration_helpers import add_dashboard_summary
 from typing import List, Dict
 
 router = APIRouter(prefix="/analytics", responses={404: {"description": "Not found"}})
@@ -50,12 +51,25 @@ async def get_central_dashboard():
     Get complete central government dashboard with aggregated metrics
     
     **Access handled by frontend authentication**
+    **Explainable AI**: Automatically includes AI executive summary for government officials
     """
     try:
         dashboard = analytics_service.get_central_dashboard()
+        
+        # Add AI-generated executive summary
+        result = await add_dashboard_summary(
+            dashboard_data=dashboard,
+            dashboard_name="Central Government Dashboard",
+            level="central",
+            graceful_degradation=True
+        )
+        
         return {
             "success": True,
-            "dashboard": dashboard
+            "dashboard": result.get("dashboard_data", dashboard),
+            "executive_summary": result.get("executive_summary"),
+            "key_insights": result.get("key_insights", []),
+            "explainable_ai": result.get("explainable_ai", {})
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching central dashboard: {str(e)}")
@@ -64,15 +78,28 @@ async def get_central_dashboard():
 @router.get("/dashboard/central/department/{department_id}")
 async def get_central_department_dashboard(department_id: str):
     """
-    Get dashboard for specific central department
+    Get dashboard for specific central department (e.g., Health Ministry) with AI insights
     
     **Access handled by frontend authentication**
+    **Explainable AI**: Automatically includes department-specific summary
     """
     try:
         dashboard = analytics_service.get_central_department_dashboard(department_id)
+        
+        # Add AI executive summary
+        result = await add_dashboard_summary(
+            dashboard_data=dashboard,
+            dashboard_name=f"Central Department Dashboard ({department_id})",
+            level="central",
+            graceful_degradation=True
+        )
+        
         return {
             "success": True,
-            "dashboard": dashboard
+            "dashboard": result.get("dashboard_data", dashboard),
+            "executive_summary": result.get("executive_summary"),
+            "key_insights": result.get("key_insights", []),
+            "explainable_ai": result.get("explainable_ai", {})
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching department dashboard: {str(e)}")
@@ -81,15 +108,28 @@ async def get_central_department_dashboard(department_id: str):
 @router.get("/dashboard/state/{state_id}")
 async def get_state_dashboard(state_id: str):
     """
-    Get dashboard for state government with all districts
+    Get dashboard for specific state with AI executive summary
     
     **Access handled by frontend authentication**
+    **Explainable AI**: Automatically includes state-level insights
     """
     try:
         dashboard = analytics_service.get_state_dashboard(state_id)
+        
+        # Add AI executive summary
+        result = await add_dashboard_summary(
+            dashboard_data=dashboard,
+            dashboard_name=f"State Dashboard ({state_id})",
+            level="state",
+            graceful_degradation=True
+        )
+        
         return {
             "success": True,
-            "dashboard": dashboard
+            "dashboard": result.get("dashboard_data", dashboard),
+            "executive_summary": result.get("executive_summary"),
+            "key_insights": result.get("key_insights", []),
+            "explainable_ai": result.get("explainable_ai", {})
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching state dashboard: {str(e)}")
@@ -98,15 +138,28 @@ async def get_state_dashboard(state_id: str):
 @router.get("/dashboard/state/{state_id}/department/{department_id}")
 async def get_state_department_dashboard(state_id: str, department_id: str):
     """
-    Get dashboard for specific state department
+    Get dashboard for specific state department with AI insights
     
     **Access handled by frontend authentication**
+    **Explainable AI**: Automatically includes state department summary
     """
     try:
         dashboard = analytics_service.get_state_department_dashboard(state_id, department_id)
+        
+        # Add AI executive summary
+        result = await add_dashboard_summary(
+            dashboard_data=dashboard,
+            dashboard_name=f"State Department Dashboard ({state_id} - {department_id})",
+            level="state",
+            graceful_degradation=True
+        )
+        
         return {
             "success": True,
-            "dashboard": dashboard
+            "dashboard": result.get("dashboard_data", dashboard),
+            "executive_summary": result.get("executive_summary"),
+            "key_insights": result.get("key_insights", []),
+            "explainable_ai": result.get("explainable_ai", {})
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching state department dashboard: {str(e)}")
@@ -115,15 +168,28 @@ async def get_state_department_dashboard(state_id: str, department_id: str):
 @router.get("/dashboard/district/{district_id}")
 async def get_district_dashboard(district_id: str):
     """
-    Get dashboard for specific district
+    Get dashboard for specific district with AI executive summary
     
     **Access handled by frontend authentication**
+    **Explainable AI**: Automatically includes district-level insights
     """
     try:
         dashboard = analytics_service.get_district_dashboard(district_id)
+        
+        # Add AI executive summary
+        result = await add_dashboard_summary(
+            dashboard_data=dashboard,
+            dashboard_name=f"District Dashboard ({district_id})",
+            level="district",
+            graceful_degradation=True
+        )
+        
         return {
             "success": True,
-            "dashboard": dashboard
+            "dashboard": result.get("dashboard_data", dashboard),
+            "executive_summary": result.get("executive_summary"),
+            "key_insights": result.get("key_insights", []),
+            "explainable_ai": result.get("explainable_ai", {})
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching district dashboard: {str(e)}")

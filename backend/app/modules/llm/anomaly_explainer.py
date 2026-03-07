@@ -14,7 +14,7 @@ from .prompt_templates import (
 class AnomalyExplainer:
     """
     Generates natural language explanations for financial anomalies
-    using LM Studio with Qwen 3 4B
+    using Google Gemini
     """
     
     def __init__(self, llm_client: Optional[LMStudioClient] = None):
@@ -120,24 +120,37 @@ class AnomalyExplainer:
         """Prepare and format anomaly data for prompt"""
         anomaly_type = anomaly_data.get("type", "unusual_pattern")
         
+        # Extract amount (handle None and extract from description if needed)
+        amount = anomaly_data.get("amount") or 0
+        if amount == 0 or amount is None:
+            # Try to extract from description
+            import re
+            description = anomaly_data.get("description", "")
+            match = re.search(r'amount\s+(\d+\.?\d*)|Amount\s+(\d+\.?\d*)|\D(\d+\.\d+)\D', description)
+            if match:
+                amount = float(match.group(1) or match.group(2) or match.group(3) or 0)
+        
         prepared = {
             "scheme_name": anomaly_data.get("scheme_name", "Unknown Scheme"),
-            "amount": anomaly_data.get("amount", 0) / 10000000,  # Convert to Crore
+            "amount": float(amount or 0) / 10000000,  # Convert to Crore (safe division)
             "confidence": anomaly_data.get("confidence", 0) * 100,  # Convert to percentage
             "date": anomaly_data.get("detected_at", "Unknown date"),
             "context": anomaly_data.get("details", "No additional context available")
         }
         
         # Type-specific data
+        amount_val = float(amount or 0)
         if anomaly_type == "sudden_spike":
-            baseline = anomaly_data.get("baseline", anomaly_data.get("amount", 0) * 0.5)
+            baseline = anomaly_data.get("baseline") or (amount_val * 0.5)
+            baseline = float(baseline or 0)
             prepared["baseline"] = baseline / 10000000
-            prepared["increase_pct"] = ((anomaly_data.get("amount", 0) - baseline) / baseline * 100) if baseline > 0 else 0
+            prepared["increase_pct"] = ((amount_val - baseline) / baseline * 100) if baseline > 0 else 0
             
         elif anomaly_type == "sudden_drop":
-            baseline = anomaly_data.get("baseline", anomaly_data.get("amount", 0) * 2)
+            baseline = anomaly_data.get("baseline") or (amount_val * 2)
+            baseline = float(baseline or 0)
             prepared["baseline"] = baseline / 10000000
-            prepared["decrease_pct"] = ((baseline - anomaly_data.get("amount", 0)) / baseline * 100) if baseline > 0 else 0
+            prepared["decrease_pct"] = ((baseline - amount_val) / baseline * 100) if baseline > 0 else 0
             
         elif anomaly_type == "duplicate_payment":
             prepared["count"] = anomaly_data.get("count", 2)
@@ -160,9 +173,10 @@ class AnomalyExplainer:
         """Create prompt for summarizing multiple anomalies"""
         anomaly_summary = []
         for i, anom in enumerate(anomalies[:5], 1):  # Top 5 for summary
+            amt = float(anom.get('amount') or 0)
             anomaly_summary.append(
                 f"{i}. {anom.get('type', 'Unknown').replace('_', ' ').title()}: "
-                f"₹{anom.get('amount', 0)/10000000:.2f} Crore "
+                f"₹{amt/10000000:.2f} Crore "
                 f"({anom.get('severity', 'info')})"
             )
         
@@ -177,11 +191,11 @@ Create a brief (150-200 words) summary highlighting:
 4. Overall risk assessment"""
     
     def check_llm_status(self) -> Dict:
-        """Check if LM Studio is running and accessible"""
+        """Check if Gemini API is accessible"""
         is_connected = self.llm.check_connection()
         return {
             "llm_available": is_connected,
             "model": self.llm.model,
-            "endpoint": self.llm.client.base_url,
-            "status": "Connected to LM Studio" if is_connected else "LM Studio not accessible"
+            "endpoint": self.llm.base_url,
+            "status": "Connected to Gemini" if is_connected else "Gemini API not accessible"
         }

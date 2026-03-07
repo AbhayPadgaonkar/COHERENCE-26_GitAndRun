@@ -1,9 +1,8 @@
-"""Anomaly Detection Routes"""
+"""Anomaly Detection Routes with Explainable AI Layer"""
 from fastapi import APIRouter, HTTPException, Query
 from app.database.schemas import AnomalyCreate, AnomalyResponse
 from app.modules.anomaly_detection import AnomalyService
 from app.modules.anomaly_detection.feature_extractor import FeatureExtractor, AnomalyWindowAnalyzer
-from app.core.firebase import FirebaseConfig
 from typing import List, Optional
 from datetime import datetime
 
@@ -29,18 +28,53 @@ async def record_anomaly(anomaly: AnomalyCreate):
 
 @router.post("/detect")
 async def detect_anomalies(scheme_id: str, spending_data: List[dict]):
-    """Detect anomalies in spending data"""
+    """
+    Detect anomalies in spending data with Explainable AI Layer
+    
+    This endpoint automatically includes natural language explanations for each anomaly
+    to help government employees understand WHY something was flagged.
+    
+    Returns:
+    - scheme_id: The scheme identifier
+    - anomalies_detected: Count of anomalies found
+    - anomalies: List of anomalies with 'ai_explanation' field
+    - overall_summary: Executive summary of all anomalies
+    - severity_breakdown: Count by severity level
+    - explainable_ai: AI layer status information
+    """
     # Convert scheme_id to int if possible, otherwise keep as string
     try:
         scheme_id_int = int(scheme_id)
     except ValueError:
         scheme_id_int = 1  # Default to 1 for string IDs
     
+    # Step 1: ML Anomaly Detection
     anomalies = anomaly_service.detect_anomalies(scheme_id_int, spending_data)
+    
+    if not anomalies:
+        return {
+            "scheme_id": scheme_id,
+            "anomalies_detected": 0,
+            "anomalies": [],
+            "overall_summary": None,
+            "severity_breakdown": {},
+            "explainable_ai": {
+                "enabled": False,
+                "reason": "no_anomalies"
+            }
+        }
+    
+    # Step 2: Add Explainable AI Layer (Natural Language Explanations)
+    result = await add_explanations_to_anomalies(
+        anomalies=anomalies,
+        batch=True,  # Use batch mode for efficiency
+        graceful_degradation=True  # Return anomalies even if LLM fails
+    )
+    
     return {
         "scheme_id": scheme_id,
         "anomalies_detected": len(anomalies),
-        "anomalies": anomalies
+        **result  # Includes: anomalies, overall_summary, severity_breakdown, explainable_ai
     }
 
 
@@ -75,9 +109,14 @@ async def detect_anomalies_comprehensive(scheme_id: int, spending_data: List[dic
     return result
 
 
-@router.get("/scheme/{scheme_id}", response_model=List[AnomalyResponse])
+@router.get("/scheme/{scheme_id}")
 async def get_scheme_anomalies(scheme_id: str, severity: Optional[str] = Query(None)):
-    """Get anomalies for a scheme"""
+    """
+    Get anomalies for a scheme with Explainable AI Layer
+    
+    Returns historical anomalies with natural language explanations
+    to help government employees understand each issue.
+    """
     try:
         scheme_id_int = int(scheme_id)
     except ValueError:
@@ -86,12 +125,30 @@ async def get_scheme_anomalies(scheme_id: str, severity: Optional[str] = Query(N
     anomalies = anomaly_service.get_scheme_anomalies(scheme_id_int, severity)
     if not anomalies:
         raise HTTPException(status_code=404, detail="No anomalies found for this scheme")
-    return anomalies
+    
+    # Add Explainable AI Layer
+    result = await add_explanations_to_anomalies(
+        anomalies=anomalies,
+        batch=True,
+        graceful_degradation=True
+    )
+    
+    return {
+        "scheme_id": scheme_id,
+        "severity_filter": severity,
+        "anomaly_count": len(anomalies),
+        **result
+    }
 
 
 @router.get("/scheme/{scheme_id}/summary")
-async def get_anomaly_summary(scheme_id: str):
-    """Get anomaly summary for a scheme"""
+async def get_scheme_anomaly_summary(scheme_id: str):
+    """
+    Get anomaly summary for a scheme with executive overview
+    
+    Provides statistical breakdown plus AI-generated executive summary
+    for government officials to quickly understand the situation.
+    """
     try:
         scheme_id_int = int(scheme_id)
     except ValueError:
@@ -99,7 +156,8 @@ async def get_anomaly_summary(scheme_id: str):
     
     all_anomalies = anomaly_service.get_scheme_anomalies(scheme_id_int)
     
-    return {
+    # Statistical breakdown
+    summary_data = {
         "scheme_id": scheme_id,
         "total_anomalies": len(all_anomalies),
         "by_severity": {
@@ -115,6 +173,18 @@ async def get_anomaly_summary(scheme_id: str):
             "fund_lapse": len([a for a in all_anomalies if a.get("anomaly_type") == "fund_lapse"])
         }
     }
+    
+    # Add AI-generated executive summary if anomalies exist
+    if all_anomalies:
+        result = await add_explanations_to_anomalies(
+            anomalies=all_anomalies[:10],  # Top 10 for summary
+            batch=True,
+            graceful_degradation=True
+        )
+        summary_data["executive_summary"] = result.get("overall_summary")
+        summary_data["explainable_ai"] = result.get("explainable_ai")
+    
+    return summary_data
 
 
 @router.post("/detect/from-transactions/{scheme_id}")
@@ -371,3 +441,26 @@ async def compare_transaction_periods(
             status_code=500,
             detail=f"Period comparison error: {str(e)}"
         )
+
+
+@router.get("/health")
+async def check_anomaly_system_health():
+    """
+    Check health of anomaly detection system including Explainable AI layer
+    
+    Returns status of both ML anomaly detection and LLM explanation services
+    """
+    llm_status = check_llm_availability()
+    
+    return {
+        "anomaly_detection": {
+            "status": "operational",
+            "service": "ML-based anomaly detection"
+        },
+        "explainable_ai": {
+            "status": "operational" if llm_status["available"] else "degraded",
+            "llm_available": llm_status["available"],
+            "model": llm_status.get("model"),
+            "note": "System works without LLM but explanations will be rule-based"
+        }
+    }
