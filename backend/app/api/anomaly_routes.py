@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Query
 from app.database.schemas import AnomalyCreate, AnomalyResponse
 from app.modules.anomaly_detection import AnomalyService
 from app.modules.anomaly_detection.feature_extractor import FeatureExtractor, AnomalyWindowAnalyzer
+from app.core.firebase import FirebaseConfig
 from typing import List, Optional
 from datetime import datetime
 
