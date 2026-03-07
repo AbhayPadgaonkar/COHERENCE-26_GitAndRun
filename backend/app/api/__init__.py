@@ -11,6 +11,7 @@ from app.api.insights_routes import router as insights_router
 from app.api.beneficiary_payment_routes import router as beneficiary_payment_router
 from app.api.nodal_agency_routes import router as nodal_agency_router
 from app.api.utilization_certificate_routes import router as utilization_certificate_router
+from app.api.llm_routes import router as llm_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -26,5 +27,6 @@ api_router.include_router(insights_router, tags=["Insights"])
 api_router.include_router(beneficiary_payment_router, tags=["Beneficiary Payments (DBT)"])
 api_router.include_router(nodal_agency_router, tags=["Nodal Agency Monitoring"])
 api_router.include_router(utilization_certificate_router, tags=["Utilization Certificates"])
+api_router.include_router(llm_router, tags=["LLM Intelligence"])
 
 __all__ = ["api_router"]
