@@ -1,0 +1,386 @@
+{
+  "amount_trends": {
+    "WOMEN-SHG-EMPOWERMENT": {
+      "slope": 1.9028844545886712,
+      "intercept": 101314.24583812342,
+      "ma_7": 77534.19571428571,
+      "ma_30": 103881.89266666668,
+      "last_amount": 46690.37,
+      "avg_amount": 102573.00390483382,
+      "trend": "stable"
+    },
+    "SWACHH-BHARAT-GRAMIN": {
+      "slope": -6.38132600213296,
+      "intercept": 104398.14003648619,
+      "ma_7": 134133.76714285713,
+      "ma_30": 114360.83633333333,
+      "last_amount": 182893.44,
+      "avg_amount": 100368.33266613923,
+      "trend": "stable"
+    },
+    "SMART-CITY-MISSION": {
+      "slope": 84.13661693903684,
+      "intercept": 2684071.5036807135,
+      "ma_7": 1943557.6014285716,
+      "ma_30": 2802964.3896666667,
+      "last_amount": 2038640.19,
+      "avg_amount": 2738592.031457209,
+      "trend": "stable"
+    },
+    "SWACHH-BHARAT-URBAN": {
+      "slope": 0.3271386579025755,
+      "intercept": 98786.65143450398,
+      "ma_7": 120468.9842857143,
+      "ma_30": 95636.12266666668,
+      "last_amount": 89096.05,
+      "avg_amount": 99007.30645925926,
+      "trend": "stable"
+    },
+    "NATIONAL-HEALTH-MISSION": {
+      "slope": 4.44422158402604,
+      "intercept": 96521.07944594596,
+      "ma_7": 129590.92857142857,
+      "ma_30": 104019.14666666667,
+      "last_amount": 60465.23,
+      "avg_amount": 99396.4908108108,
+      "trend": "stable"
+    },
+    "PM-FASAL-BIMA": {
+      "slope": 0.2833621720088095,
+      "intercept": 99602.15289418312,
+      "ma_7": 105813.37428571428,
+      "ma_30": 92489.65866666666,
+      "last_amount": 143116.96,
+      "avg_amount": 99784.35477078478,
+      "trend": "stable"
+    },
+    "JAL-JEEVAN-MISSION": {
+      "slope": -0.007967438419052498,
+      "intercept": 100779.70803250409,
+      "ma_7": 74257.22571428571,
+      "ma_30": 95399.35866666668,
+      "last_amount": 25401.22,
+      "avg_amount": 100774.56106728538,
+      "trend": "stable"
+    },
+    "AYUSHMAN-BHARAT": {
+      "slope": 3.8710065990714595,
+      "intercept": 96349.23866806866,
+      "ma_7": 90334.92428571428,
+      "ma_30": 94859.52933333332,
+      "last_amount": 108436.33,
+      "avg_amount": 98801.52134858044,
+      "trend": "stable"
+    },
+    "STARTUP-INDIA-FUND": {
+      "slope": -6.281657983868748,
+      "intercept": 107108.63187342462,
+      "ma_7": 81522.2757142857,
+      "ma_30": 95600.946,
+      "last_amount": 29407.39,
+      "avg_amount": 102972.16009104704,
+      "trend": "stable"
+    },
+    "DIGITAL-INDIA-INFRA": {
+      "slope": -143.39681247796406,
+      "intercept": 2832473.3147432087,
+      "ma_7": 2535870.3328571427,
+      "ma_30": 2579383.698,
+      "last_amount": 1173499.69,
+      "avg_amount": 2739838.9738824437,
+      "trend": "decreasing"
+    },
+    "RURAL-ELECTRIFICATION": {
+      "slope": 56.09629565552806,
+      "intercept": 2712052.9153805687,
+      "ma_7": 2535238.6785714286,
+      "ma_30": 2825577.4896666664,
+      "last_amount": 3952591.43,
+      "avg_amount": 2750226.444574156,
+      "trend": "stable"
+    },
+    "PMAY-URBAN-2025": {
+      "slope": -0.26234774676228007,
+      "intercept": 100121.56371208194,
+      "ma_7": 65813.05857142857,
+      "ma_30": 85559.03266666667,
+      "last_amount": 39575.48,
+      "avg_amount": 99954.1858496476,
+      "trend": "stable"
+    },
+    "UDAY-POWER-REFORM": {
+      "slope": -4.619828655871759,
+      "intercept": 101245.97528446557,
+      "ma_7": 58379.18428571429,
+      "ma_30": 100013.289,
+      "last_amount": 93955.24,
+      "avg_amount": 98353.96254588985,
+      "trend": "stable"
+    },
+    "PMGSY-ROAD-DEV": {
+      "slope": -48.421698431156926,
+      "intercept": 2803061.365574144,
+      "ma_7": 2097442.864285714,
+      "ma_30": 2754405.9016666664,
+      "last_amount": 2904915.34,
+      "avg_amount": 2771030.412061934,
+      "trend": "stable"
+    },
+    "SKILL-INDIA-MISSION": {
+      "slope": -3.8626658429178207,
+      "intercept": 103436.48025710025,
+      "ma_7": 79894.65428571428,
+      "ma_30": 89899.05733333333,
+      "last_amount": 95752.55,
+      "avg_amount": 100962.4427847114,
+      "trend": "stable"
+    },
+    "PM-KISAN-2024": {
+      "slope": -0.7893482481176928,
+      "intercept": 100634.57843107927,
+      "ma_7": 126507.94285714286,
+      "ma_30": 95987.809,
+      "last_amount": 105062.29,
+      "avg_amount": 100111.24054257724,
+      "trend": "stable"
+    },
+    "PM-KAUSHAL-VIKAS": {
+      "slope": -5.9086409587098645,
+      "intercept": 105756.07163528245,
+      "ma_7": 91531.95857142856,
+      "ma_30": 96404.63066666666,
+      "last_amount": 39826.06,
+      "avg_amount": 101977.4957421875,
+      "trend": "stable"
+    },
+    "PM-POSHAN-SCHEME": {
+      "slope": 4.170357793422159,
+      "intercept": 97338.66950550977,
+      "ma_7": 74940.36,
+      "ma_30": 102977.27466666668,
+      "last_amount": 41228.38,
+      "avg_amount": 99970.16527315915,
+      "trend": "stable"
+    },
+    "MGNREGA-WB-01": {
+      "slope": 4.287199626561951,
+      "intercept": 98058.16253953041,
+      "ma_7": 110828.20571428571,
+      "ma_30": 94468.53366666666,
+      "last_amount": 123409.53,
+      "avg_amount": 100872.70909436834,
+      "trend": "stable"
+    },
+    "STANDUP-INDIA": {
+      "slope": -2.277205856069753,
+      "intercept": 100168.57544652949,
+      "ma_7": 82384.77857142857,
+      "ma_30": 95420.458,
+      "last_amount": 64219.83,
+      "avg_amount": 98661.06516981132,
+      "trend": "stable"
+    }
+  },
+  "processing_times": {
+    "district_beneficiary": {
+      "avg_days": 11,
+      "min_days": 5,
+      "max_days": 18,
+      "samples": 5294
+    },
+    "district_block": {
+      "avg_days": 11,
+      "min_days": 5,
+      "max_days": 18,
+      "samples": 5297
+    },
+    "central_state": {
+      "avg_days": 4,
+      "min_days": 2,
+      "max_days": 8,
+      "samples": 10516
+    },
+    "state_district": {
+      "avg_days": 6,
+      "min_days": 3,
+      "max_days": 10,
+      "samples": 10481
+    }
+  },
+  "lapse_patterns": {
+    "PMGSY-ROAD-DEV": {
+      "avg_risk": 0.5978346456692913,
+      "risk_level": "medium",
+      "samples": 2032
+    },
+    "PMAY-URBAN-2025": {
+      "avg_risk": 0.5912932790224033,
+      "risk_level": "medium",
+      "samples": 1964
+    },
+    "WOMEN-SHG-EMPOWERMENT": {
+      "avg_risk": 0.5985629335976215,
+      "risk_level": "medium",
+      "samples": 2018
+    },
+    "DIGITAL-INDIA-INFRA": {
+      "avg_risk": 0.5973326623049824,
+      "risk_level": "medium",
+      "samples": 1987
+    },
+    "SWACHH-BHARAT-GRAMIN": {
+      "avg_risk": 0.6037716615698268,
+      "risk_level": "high",
+      "samples": 1962
+    },
+    "SMART-CITY-MISSION": {
+      "avg_risk": 0.5907059421025902,
+      "risk_level": "medium",
+      "samples": 1969
+    },
+    "SWACHH-BHARAT-URBAN": {
+      "avg_risk": 0.592064264849075,
+      "risk_level": "medium",
+      "samples": 2054
+    },
+    "NATIONAL-HEALTH-MISSION": {
+      "avg_risk": 0.5919682697074864,
+      "risk_level": "medium",
+      "samples": 2017
+    },
+    "UDAY-POWER-REFORM": {
+      "avg_risk": 0.5964759959141982,
+      "risk_level": "medium",
+      "samples": 1958
+    },
+    "PM-FASAL-BIMA": {
+      "avg_risk": 0.5918429003021148,
+      "risk_level": "medium",
+      "samples": 1986
+    },
+    "JAL-JEEVAN-MISSION": {
+      "avg_risk": 0.5930950048971597,
+      "risk_level": "medium",
+      "samples": 2042
+    },
+    "AYUSHMAN-BHARAT": {
+      "avg_risk": 0.5942219969589458,
+      "risk_level": "medium",
+      "samples": 1973
+    },
+    "STARTUP-INDIA-FUND": {
+      "avg_risk": 0.590158259149357,
+      "risk_level": "medium",
+      "samples": 2022
+    },
+    "RURAL-ELECTRIFICATION": {
+      "avg_risk": 0.5943034944949737,
+      "risk_level": "medium",
+      "samples": 2089
+    },
+    "PM-KISAN-2024": {
+      "avg_risk": 0.5956631366616238,
+      "risk_level": "medium",
+      "samples": 1983
+    },
+    "SKILL-INDIA-MISSION": {
+      "avg_risk": 0.589990089197225,
+      "risk_level": "medium",
+      "samples": 2018
+    },
+    "PM-KAUSHAL-VIKAS": {
+      "avg_risk": 0.5921756688541141,
+      "risk_level": "medium",
+      "samples": 1981
+    },
+    "MGNREGA-WB-01": {
+      "avg_risk": 0.5907231920199502,
+      "risk_level": "medium",
+      "samples": 2005
+    },
+    "PM-POSHAN-SCHEME": {
+      "avg_risk": 0.5942961800104658,
+      "risk_level": "medium",
+      "samples": 1911
+    },
+    "STANDUP-INDIA": {
+      "avg_risk": 0.5976835879743716,
+      "risk_level": "medium",
+      "samples": 2029
+    }
+  },
+  "seasonal_factors": {
+    "1": {
+      "factor": 0.98068009043998,
+      "avg_amount": 625740.6372455902,
+      "peak": false,
+      "low": false
+    },
+    "4": {
+      "factor": 1.0111739345875614,
+      "avg_amount": 645197.7850504514,
+      "peak": false,
+      "low": false
+    },
+    "10": {
+      "factor": 0.961739079757194,
+      "avg_amount": 613654.9834118262,
+      "peak": false,
+      "low": false
+    },
+    "3": {
+      "factor": 0.9778480965314766,
+      "avg_amount": 623933.632402464,
+      "peak": false,
+      "low": false
+    },
+    "6": {
+      "factor": 0.9971777092165657,
+      "avg_amount": 636267.2407597536,
+      "peak": false,
+      "low": false
+    },
+    "8": {
+      "factor": 1.037306659007645,
+      "avg_amount": 661872.2416760061,
+      "peak": false,
+      "low": false
+    },
+    "9": {
+      "factor": 1.004522178317949,
+      "avg_amount": 640953.5118694977,
+      "peak": false,
+      "low": false
+    },
+    "5": {
+      "factor": 0.999388499267774,
+      "avg_amount": 637677.8752663017,
+      "peak": false,
+      "low": false
+    },
+    "7": {
+      "factor": 1.0227124816106616,
+      "avg_amount": 652560.1632994924,
+      "peak": false,
+      "low": false
+    },
+    "2": {
+      "factor": 1.0083976732189524,
+      "avg_amount": 643426.3413606194,
+      "peak": false,
+      "low": false
+    },
+    "11": {
+      "factor": 1.0148101036512627,
+      "avg_amount": 647517.9083702104,
+      "peak": false,
+      "low": false
+    },
+    "12": {
+      "factor": 1.0018288201018513,
+      "avg_amount": 639234.966032888,
+      "peak": false,
+      "low": false
+    }
+  }
+}

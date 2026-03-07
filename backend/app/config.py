@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     # Firebase Configuration
     FIREBASE_CREDENTIALS_PATH: Optional[str] = None
     FIREBASE_CREDENTIALS_JSON: Optional[str] = None
+    DISABLE_FIREBASE_WARNINGS: bool = False
     
     class Config:
         env_file = ".env"

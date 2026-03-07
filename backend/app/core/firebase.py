@@ -51,8 +51,11 @@ class FirebaseConfig:
                     cls._app = firebase_admin.initialize_app(cred)
                     logger.info("✅ Firebase initialized from environment JSON")
                 else:
-                    logger.warning("⚠️  Firebase credentials not configured - using in-memory fallback")
-                    logger.warning(f"   Looked for: {firebase_cred_path}")
+                    # For hackathon: Use in-memory storage without excessive warnings
+                    disable_warnings = os.getenv("DISABLE_FIREBASE_WARNINGS", "false").lower() == "true"
+                    if not disable_warnings:
+                        logger.warning("⚠️  Firebase credentials not configured - using in-memory fallback")
+                        logger.warning(f"   Looked for: {firebase_cred_path}")
                     cls._app = None
                     return None
             
