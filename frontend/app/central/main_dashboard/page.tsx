@@ -32,7 +32,6 @@ import MinistryBudgetChart from "@/app/components/central/MinistryBudgetChart"
 import SchemeTypePieChart from "@/app/components/central/SchemeTypePieChart"
 import AnomalyAlerts from "@/app/components/central/AnomalyAlerts"
 import FundFlowTracker from "@/app/components/central/FundFlowTracker"
-import FundReallocation from "@/app/components/central/FundReallocation"
 
 export default function CentralDashboard() {
   const [schemes, setSchemes] = useState([])
@@ -143,6 +142,31 @@ export default function CentralDashboard() {
     try {
       const result = await createFundFlow(fundFlowData)
       if (result) {
+        // Also record on blockchain
+        try {
+          const blockchainResponse = await fetch('http://localhost:8000/api/v1/transactions/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sender_id: fundFlowData.from_entity_code,
+              sender_dept: fundFlowData.from_entity_name,
+              receiver_id: fundFlowData.to_entity_code,
+              receiver_dept: fundFlowData.to_entity_name,
+              amount: parseFloat(fundFlowData.amount),
+              fees: 0.0,
+              scheme_id: fundFlowData.scheme_id,
+              fund_flow_reference: fundFlowData.fund_flow_reference
+            })
+          })
+          
+          const blockchainData = await blockchainResponse.json()
+          if (blockchainData.success) {
+            console.log("Blockchain recorded:", blockchainData.transaction_id)
+          }
+        } catch (bcError) {
+          console.warn("Blockchain recording skipped:", bcError)
+        }
+        
         setIsFundFlowModalOpen(false)
         setFundFlowData(initialFundFlowState)
         await loadData() 
@@ -580,9 +604,6 @@ export default function CentralDashboard() {
                   <FundFlowTracker schemes={schemes} refreshTrigger={fundFlowRefreshKey} />
                 </div>
               </div>
-
-              {/* Fund Reallocation Component */}
-              <FundReallocation schemes={schemes} />
 
             </section>
             

@@ -33,6 +33,16 @@ class Settings(BaseSettings):
     # LLM Configuration
     GEMINI_API_KEY: Optional[str] = None
     
+    # Blockchain Configuration
+    POLYGON_RPC_URL: Optional[str] = None
+    CONTRACT_ADDRESS: Optional[str] = None
+    PRIVATE_KEY: Optional[str] = None
+    
+    # Blockchain Configuration
+    POLYGON_RPC_URL: Optional[str] = None
+    CONTRACT_ADDRESS: Optional[str] = None
+    PRIVATE_KEY: Optional[str] = None
+    
     class Config:
         env_file = ".env"
         case_sensitive = True
