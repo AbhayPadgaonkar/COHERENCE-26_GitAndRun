@@ -208,7 +208,11 @@ class AnomalyCreate(AnomalyBase):
 
 
 class AnomalyResponse(AnomalyBase):
-    id: int
+    id: Optional[int] = None
+    document_id: Optional[str] = None
+
+    class Config:
+        from_attributes = True
     
     class Config:
         from_attributes = True

@@ -113,18 +113,33 @@ export default function StateDashboard() {
     setIsFundTransferSubmitting(true)
     
     try {
+      console.log("📤 Submitting fund transfer:", fundTransferData)
       const result = await createFundFlow(fundTransferData)
+      console.log("✅ Fund transfer created:", result)
       
       if (result) {
+        // Close modal and reset form
         setIsFundTransferModalOpen(false)
         setFundTransferData(initialFundTransferState)
-        await loadData()
+        
+        // Show success message
+        alert("✅ Fund Transfer to District Recorded Successfully!\n\nRefreshing dashboard...")
+        
+        // Wait a moment for backend to process, then refresh
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // Trigger refresh
+        console.log("🔄 Triggering fund flow refresh...")
         setFundFlowRefreshKey(prev => prev + 1)
-        alert("✅ Fund Transfer to District Recorded Successfully!")
+        
+        // Reload dashboard data
+        await loadData()
+        
+        console.log("✅ Dashboard refreshed successfully")
       }
     } catch (error) {
       alert(`❌ Fund Transfer Failed:\n\n${error.message}`)
-      console.error("Fund Transfer Error:", error)
+      console.error("❌ Fund Transfer Error:", error)
     } finally {
       setIsFundTransferSubmitting(false)
     }

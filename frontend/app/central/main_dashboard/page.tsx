@@ -32,6 +32,7 @@ import MinistryBudgetChart from "@/app/components/central/MinistryBudgetChart"
 import SchemeTypePieChart from "@/app/components/central/SchemeTypePieChart"
 import AnomalyAlerts from "@/app/components/central/AnomalyAlerts"
 import FundFlowTracker from "@/app/components/central/FundFlowTracker"
+import FundReallocation from "@/app/components/central/FundReallocation"
 
 export default function CentralDashboard() {
   const [schemes, setSchemes] = useState([])
@@ -579,6 +580,9 @@ export default function CentralDashboard() {
                   <FundFlowTracker schemes={schemes} refreshTrigger={fundFlowRefreshKey} />
                 </div>
               </div>
+
+              {/* Fund Reallocation Component */}
+              <FundReallocation schemes={schemes} />
 
             </section>
             

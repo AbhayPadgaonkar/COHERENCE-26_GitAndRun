@@ -19,6 +19,7 @@ export default function StateFundFlowTracker({ schemes = [], stateName = "Mahara
 
   useEffect(() => {
     if (selectedScheme) {
+      console.log(`🔄 Loading fund flows for scheme: ${selectedScheme}, refresh: ${refreshTrigger}`)
       loadFundFlows()
     }
   }, [selectedScheme, refreshTrigger])
@@ -31,10 +32,13 @@ export default function StateFundFlowTracker({ schemes = [], stateName = "Mahara
         getTotalTransferred(selectedScheme)
       ])
       
+      console.log(`📊 Loaded ${Array.isArray(flowsData) ? flowsData.length : 0} fund flows for scheme ${selectedScheme}`)
+      console.log("Fund flows data:", flowsData)
+      
       setFundFlows(Array.isArray(flowsData) ? flowsData : [])
       setTotalTransferred(totalData.total_transferred || 0)
     } catch (error) {
-      console.error("Error loading fund flows:", error)
+      console.error("❌ Error loading fund flows:", error)
     } finally {
       setLoading(false)
     }
@@ -84,31 +88,64 @@ export default function StateFundFlowTracker({ schemes = [], stateName = "Mahara
 
   // Filter flows based on state perspective
   const filterFlows = () => {
+    console.log(`🔍 Filtering ${fundFlows.length} flows for state: ${stateName}, mode: ${viewMode}`)
+    
     if (viewMode === "incoming") {
       // Flows coming TO state (from Central)
-      return fundFlows.filter(flow => {
+      const incoming = fundFlows.filter(flow => {
         const toState = flow.to_level?.toLowerCase() === "state" && 
                        flow.to_entity_name?.toLowerCase().includes(stateName.toLowerCase())
         const fromCentral = flow.from_level?.toLowerCase() === "central"
         return toState || (fromCentral && flow.to_entity_name?.toLowerCase().includes(stateName.toLowerCase()))
       })
+      console.log(`📥 Incoming flows (${incoming.length}):`, incoming)
+      return incoming
     } else if (viewMode === "outgoing") {
       // Flows going FROM state (to Districts)
-      return fundFlows.filter(flow => {
+      const outgoing = fundFlows.filter(flow => {
         const fromState = flow.from_level?.toLowerCase() === "state" && 
                          flow.from_entity_name?.toLowerCase().includes(stateName.toLowerCase())
         const toDistrict = flow.to_level?.toLowerCase() === "district"
-        return fromState || (toDistrict && flow.from_entity_name?.toLowerCase().includes(stateName.toLowerCase()))
+        const match = fromState || (toDistrict && flow.from_entity_name?.toLowerCase().includes(stateName.toLowerCase()))
+        
+        if (match) {
+          console.log("✅ Outgoing flow match:", {
+            from: flow.from_entity_name,
+            to: flow.to_entity_name,
+            amount: flow.amount,
+            from_level: flow.from_level,
+            to_level: flow.to_level
+          })
+        }
+        
+        return match
       })
+      console.log(`📤 Outgoing flows (${outgoing.length}):`, outgoing)
+      return outgoing
     }
+    
     // For 'all' view, show flows where state is either sender or receiver
-    return fundFlows.filter(flow => {
+    const all = fundFlows.filter(flow => {
       const isReceiver = flow.to_level?.toLowerCase() === "state" && 
                         flow.to_entity_name?.toLowerCase().includes(stateName.toLowerCase())
       const isSender = flow.from_level?.toLowerCase() === "state" && 
                       flow.from_entity_name?.toLowerCase().includes(stateName.toLowerCase())
-      return isReceiver || isSender
+      const match = isReceiver || isSender
+      
+      console.log(`🔍 Flow ${flow.id || flow.fund_flow_reference}:`, {
+        from_level: flow.from_level,
+        from_entity: flow.from_entity_name,
+        to_level: flow.to_level,
+        to_entity: flow.to_entity_name,
+        isSender,
+        isReceiver,
+        match: match ? "✅" : "❌"
+      })
+      
+      return match
     })
+    console.log(`📊 All flows filtered: ${all.length} of ${fundFlows.length}`)
+    return all
   }
 
   const filteredFlows = filterFlows()

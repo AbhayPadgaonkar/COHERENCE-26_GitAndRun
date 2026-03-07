@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getSchemes, createFundFlow } from "@/lib/api"
+import { getSchemes, createFundFlow, getDistrictAIInsights, getBeneficiaryPaymentsByDistrict, getDistrictAnomalies } from "@/lib/api"
 import Link from "next/link"
 import { 
   Loader2, 
@@ -32,6 +32,7 @@ import BlockMonitor from "@/app/components/district/BlockMonitor"
 import DistrictFundFlowTracker from "@/app/components/district/DistrictFundFlowTracker"
 import BeneficiaryPaymentChart from "@/app/components/district/BeneficiaryPaymentChart"
 import DistrictAnomalyAlerts from "@/app/components/district/DistrictAnomalyAlerts"
+import AIInsights from "@/components/AIInsights"
 
 export default function DistrictDashboard() {
   const [schemes, setSchemes] = useState([])
@@ -74,6 +75,14 @@ export default function DistrictDashboard() {
     beneficiariesCount: 0
   })
 
+  // AI Insights state
+  const [aiInsights, setAiInsights] = useState({
+    insights: "",
+    confidence: "low",
+    generated_at: new Date().toISOString()
+  })
+  const [isLoadingAI, setIsLoadingAI] = useState(false)
+
   // Load initial dashboard data
   const loadData = async () => {
     try {
@@ -96,6 +105,9 @@ export default function DistrictDashboard() {
         blocksCount: 12,
         beneficiariesCount: 15000
       })
+
+      // Load AI insights after data is fetched
+      loadAIInsights(districtSchemes, budget)
     } catch (error) {
       console.error("Dashboard error:", error)
     } finally {
@@ -127,6 +139,44 @@ export default function DistrictDashboard() {
       console.error("Payment Error:", error)
     } finally {
       setIsFundTransferSubmitting(false)
+    }
+  }
+
+  // --- Load AI Insights ---
+  const loadAIInsights = async (districtSchemes?: any[], budget?: number) => {
+    setIsLoadingAI(true)
+    try {
+      // Use existing data or fetch fresh
+      const schemesToUse = districtSchemes || schemes
+      const budgetToUse = budget || totalBudget
+
+      // Fetch beneficiary payments and anomalies
+      const payments = await getBeneficiaryPaymentsByDistrict(selectedDistrict)
+      const anomalies = await getDistrictAnomalies(selectedDistrict)
+
+      const aiData = await getDistrictAIInsights({
+        district_name: selectedDistrict,
+        schemes: schemesToUse,
+        total_budget: budgetToUse,
+        blocks_count: stats.blocksCount,
+        beneficiary_payments: payments,
+        anomalies: anomalies
+      })
+
+      setAiInsights({
+        insights: aiData.insights || "No insights available",
+        confidence: aiData.confidence || "low",
+        generated_at: aiData.generated_at || new Date().toISOString()
+      })
+    } catch (error) {
+      console.error("AI Insights error:", error)
+      setAiInsights({
+        insights: "Unable to generate AI insights at this time. Please try again later.",
+        confidence: "low",
+        generated_at: new Date().toISOString()
+      })
+    } finally {
+      setIsLoadingAI(false)
     }
   }
 
@@ -335,7 +385,19 @@ export default function DistrictDashboard() {
             </section>
 
             {/* Right Column - 1/3 width */}
-            <section className="lg:col-span-1">
+            <section className="lg:col-span-1 space-y-8">
+              {/* AI Insights */}
+              <AIInsights
+                insights={aiInsights.insights}
+                confidence={aiInsights.confidence}
+                generatedAt={aiInsights.generated_at}
+                onRefresh={() => loadAIInsights()}
+                isLoading={isLoadingAI}
+                title="District AI Insights"
+                accentColor="#000080"
+              />
+
+              {/* Anomaly Alerts */}
               <DistrictAnomalyAlerts districtName={selectedDistrict} />
             </section>
           </div>

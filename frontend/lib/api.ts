@@ -409,3 +409,99 @@ export async function getDistrictAnomalies(districtName: string) {
     return []
   }
 }
+
+
+// ==================== AI INSIGHTS API ====================
+
+export async function getCentralAIInsights(data: {
+  schemes: any[]
+  total_budget: number
+  total_utilization: number
+  anomalies: any[]
+  states_count: number
+}) {
+  try {
+    const res = await fetch(`${API_BASE}/insights/ai/central`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    })
+
+    if (!res.ok) {
+      throw new Error("Failed to fetch AI insights")
+    }
+
+    return await res.json()
+  } catch (error) {
+    console.error("Central AI insights error:", error)
+    return {
+      level: "central",
+      insights: "AI insights temporarily unavailable. Please check backend connection.",
+      confidence: "low",
+      generated_at: new Date().toISOString()
+    }
+  }
+}
+
+export async function getStateAIInsights(data: {
+  state_name: string
+  schemes: any[]
+  total_budget: number
+  total_utilization: number
+  district_count: number
+  fund_flows: any[]
+  anomalies: any[]
+}) {
+  try {
+    const res = await fetch(`${API_BASE}/insights/ai/state`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    })
+
+    if (!res.ok) {
+      throw new Error("Failed to fetch AI insights")
+    }
+
+    return await res.json()
+  } catch (error) {
+    console.error("State AI insights error:", error)
+    return {
+      level: "state",
+      insights: "AI insights temporarily unavailable. Please check backend connection.",
+      confidence: "low",
+      generated_at: new Date().toISOString()
+    }
+  }
+}
+
+export async function getDistrictAIInsights(data: {
+  district_name: string
+  schemes: any[]
+  total_budget: number
+  blocks_count: number
+  beneficiary_payments: any[]
+  anomalies: any[]
+}) {
+  try {
+    const res = await fetch(`${API_BASE}/insights/ai/district`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    })
+
+    if (!res.ok) {
+      throw new Error("Failed to fetch AI insights")
+    }
+
+    return await res.json()
+  } catch (error) {
+    console.error("District AI insights error:", error)
+    return {
+      level: "district",
+      insights: "AI insights temporarily unavailable. Please check backend connection.",
+      confidence: "low",
+      generated_at: new Date().toISOString()
+    }
+  }
+}
