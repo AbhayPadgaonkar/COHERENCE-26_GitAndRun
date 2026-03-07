@@ -12,10 +12,12 @@ from app.api.beneficiary_payment_routes import router as beneficiary_payment_rou
 from app.api.nodal_agency_routes import router as nodal_agency_router
 from app.api.utilization_certificate_routes import router as utilization_certificate_router
 from app.api.llm_routes import router as llm_router
+from app.api.metamask_auth_routes import router as metamask_auth_router
 
 api_router = APIRouter(prefix="/api/v1")
 
 # Include all routers
+api_router.include_router(metamask_auth_router, tags=["MetaMask Authentication"])
 api_router.include_router(scheme_router, tags=["Schemes"])
 api_router.include_router(fund_flow_router, tags=["Fund Flow"])
 api_router.include_router(utilization_router, tags=["Utilization"])
