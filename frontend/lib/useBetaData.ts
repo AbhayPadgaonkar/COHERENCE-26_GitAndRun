@@ -3,7 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/database/firebase";
-import { COLLECTIONS_BETA, STATE_CODE_FULL, type UserProfile } from "./collections-beta";
+import {
+  COLLECTIONS_BETA,
+  STATE_CODE_FULL,
+  type UserProfile,
+} from "./collections-beta";
 
 export interface SchemeBeta {
   id: string;
@@ -75,7 +79,9 @@ export interface NodalAgencyBeta {
 }
 
 function matchesState(code: string, stateCode: string) {
-  return code === stateCode || code === STATE_CODE_FULL || code === `IN-${stateCode}`;
+  return (
+    code === stateCode || code === STATE_CODE_FULL || code === `IN-${stateCode}`
+  );
 }
 
 export function useBetaData(userProfile: UserProfile | null) {
@@ -96,7 +102,13 @@ export function useBetaData(userProfile: UserProfile | null) {
     setLoading(true);
     setError(null);
     try {
-      const [schemesSnap, flowsSnap, paymentsSnap, anomaliesSnap, agenciesSnap] = await Promise.all([
+      const [
+        schemesSnap,
+        flowsSnap,
+        paymentsSnap,
+        anomaliesSnap,
+        agenciesSnap,
+      ] = await Promise.all([
         getDocs(collection(db, COLLECTIONS_BETA.schemes)),
         getDocs(collection(db, COLLECTIONS_BETA.fundFlows)),
         getDocs(collection(db, COLLECTIONS_BETA.beneficiaryPayments)),
@@ -110,10 +122,21 @@ export function useBetaData(userProfile: UserProfile | null) {
       })) as SchemeBeta[];
       const flowsList: FundFlowBeta[] = (
         flowsSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as FundFlowBeta[]
-      ).sort((a, b) => (b.created_at || b.transfer_date || "").localeCompare(a.created_at || a.transfer_date || ""));
+      ).sort((a, b) =>
+        (b.created_at || b.transfer_date || "").localeCompare(
+          a.created_at || a.transfer_date || "",
+        ),
+      );
       const paymentsList: BeneficiaryPaymentBeta[] = (
-        paymentsSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as BeneficiaryPaymentBeta[]
-      ).sort((a, b) => (b.created_at || b.payment_date || "").localeCompare(a.created_at || a.payment_date || ""));
+        paymentsSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        })) as BeneficiaryPaymentBeta[]
+      ).sort((a, b) =>
+        (b.created_at || b.payment_date || "").localeCompare(
+          a.created_at || a.payment_date || "",
+        ),
+      );
       const anomaliesList: AnomalyBeta[] = anomaliesSnap.docs.map((d) => ({
         id: d.id,
         ...d.data(),
@@ -140,57 +163,100 @@ export function useBetaData(userProfile: UserProfile | null) {
       // 1. Schemes: CENTRAL_ADMIN sees all; others only their department
       let filteredSchemes = schemesList;
       if (!isCentralAdmin && userProfile.department) {
-        filteredSchemes = schemesList.filter((s) => s.department_id === userProfile.department);
+        filteredSchemes = schemesList.filter(
+          (s) => s.department_id === userProfile.department,
+        );
       }
       const schemeIds = new Set(filteredSchemes.map((s) => s.id));
-      const legacyIds = new Set(filteredSchemes.map((s) => s.legacy_id).filter(Boolean));
+      const legacyIds = new Set(
+        filteredSchemes.map((s) => s.legacy_id).filter(Boolean),
+      );
 
-      // 2. Flows: only schemes in scope; then by role geography
-      let filteredFlows = isCentralAdmin ? flowsList : flowsList.filter((f) => schemeIds.has(f.scheme_id));
+      // 2. Flows: by department first (except CENTRAL_ADMIN), then by geography
+      let filteredFlows = flowsList;
+
+      // Department filtering (CENTRAL_DEPT, STATE_DDO, DISTRICT_DDO see only their dept's schemes)
+      if (!isCentralAdmin && userProfile.department) {
+        filteredFlows = flowsList.filter((f) => schemeIds.has(f.scheme_id));
+      }
+
+      // Geography filtering
       if (isStateDdo && userProfile.stateCode) {
         filteredFlows = filteredFlows.filter(
           (f) =>
             matchesState(f.from_entity_code, userProfile.stateCode!) ||
             matchesState(f.to_entity_code, userProfile.stateCode!) ||
-            (f.to_entity_code && f.to_entity_code.startsWith(userProfile.stateCode!))
+            (f.to_entity_code &&
+              f.to_entity_code.startsWith(userProfile.stateCode!)),
         );
       }
       if (isDistrictDdo && userProfile.districtCode) {
         filteredFlows = filteredFlows.filter(
-          (f) => f.to_entity_code === userProfile.districtCode || f.from_entity_code === userProfile.districtCode
+          (f) =>
+            f.to_entity_code === userProfile.districtCode ||
+            f.from_entity_code === userProfile.districtCode,
         );
       }
 
       // 3. Payments: by department (and geography for state/district)
       let filteredPayments = paymentsList;
-      if (!isCentralAdmin) {
+      if (!isCentralAdmin && userProfile.department) {
         filteredPayments = paymentsList.filter(
-          (p) => p.department_id === userProfile.department || (p.scheme_id && legacyIds.has(p.scheme_id))
+          (p) =>
+            p.department_id === userProfile.department ||
+            (p.scheme_id && legacyIds.has(p.scheme_id)),
         );
       }
       if (isStateDdo && userProfile.stateCode) {
         filteredPayments = filteredPayments.filter(
-          (p) => matchesState(p.state_code || "", userProfile.stateCode!) || (p.district_code && p.district_code.startsWith(userProfile.stateCode!))
+          (p) =>
+            matchesState(p.state_code || "", userProfile.stateCode!) ||
+            (p.district_code &&
+              p.district_code.startsWith(userProfile.stateCode!)),
         );
       }
       if (isDistrictDdo && userProfile.districtCode) {
-        filteredPayments = filteredPayments.filter((p) => p.district_code === userProfile.districtCode);
+        filteredPayments = filteredPayments.filter(
+          (p) => p.district_code === userProfile.districtCode,
+        );
       }
 
-      // 4. Anomalies: by department; CENTRAL_ADMIN sees all
+      // 4. Anomalies: by department first (except CENTRAL_ADMIN), then by geography
       let filteredAnomalies = anomaliesList;
       if (!isCentralAdmin && userProfile.department) {
-        filteredAnomalies = anomaliesList.filter((a) => a.department_id === userProfile.department);
+        filteredAnomalies = anomaliesList.filter(
+          (a) => a.department_id === userProfile.department,
+        );
+      }
+      // State/District DDOs see only anomalies for schemes in their geography
+      if (isStateDdo && legacyIds.size > 0) {
+        filteredAnomalies = filteredAnomalies.filter((a) =>
+          legacyIds.has(a.scheme_id),
+        );
+      }
+      if (isDistrictDdo && legacyIds.size > 0) {
+        filteredAnomalies = filteredAnomalies.filter((a) =>
+          legacyIds.has(a.scheme_id),
+        );
       }
 
-      // 5. Nodal agencies: by department and state for state DDO
+      // 5. Nodal agencies: by department and state for state DDO, district for district DDO
       let filteredAgencies = agenciesList;
       if (!isCentralAdmin && userProfile.department) {
-        filteredAgencies = agenciesList.filter((n) => n.department_id === userProfile.department);
+        filteredAgencies = agenciesList.filter(
+          (n) => n.department_id === userProfile.department,
+        );
       }
       if (isStateDdo && userProfile.stateCode) {
+        filteredAgencies = filteredAgencies.filter((n) =>
+          matchesState(n.state_code || "", userProfile.stateCode!),
+        );
+      }
+      if (isDistrictDdo && userProfile.districtCode) {
+        // District DDOs should see nodal agencies only for their district if district_code exists
         filteredAgencies = filteredAgencies.filter(
-          (n) => matchesState(n.state_code || "", userProfile.stateCode!)
+          (n) =>
+            !n.district_code || n.district_code === userProfile.districtCode,
         );
       }
 

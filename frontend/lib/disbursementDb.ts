@@ -20,6 +20,7 @@ export type FundFlowWrite = {
   sanction_date: string;
   transfer_date: string;
   status: string;
+  department_id?: string;
   currency?: string;
   credited_date?: string;
   installment_number?: number;
@@ -38,6 +39,7 @@ export type BeneficiaryPaymentWrite = {
   state_code: string;
   district: string;
   district_code: string;
+  department_id?: string;
   payment_status?: string;
   payment_purpose?: string;
   aadhaar_masked?: string;
@@ -56,11 +58,16 @@ export async function addFundFlow(data: FundFlowWrite): Promise<string> {
   return docRef.id;
 }
 
-export async function addBeneficiaryPayment(data: BeneficiaryPaymentWrite): Promise<string> {
+export async function addBeneficiaryPayment(
+  data: BeneficiaryPaymentWrite,
+): Promise<string> {
   const col = collection(db, COLLECTIONS_BETA.beneficiaryPayments);
   const docRef = await addDoc(col, {
     ...data,
-    scheme_id: typeof data.scheme_id === "string" ? (data.scheme_id as string) : data.scheme_id,
+    scheme_id:
+      typeof data.scheme_id === "string"
+        ? (data.scheme_id as string)
+        : data.scheme_id,
     payment_status: data.payment_status ?? "BANK_CREDITED",
     payment_purpose: data.payment_purpose ?? "Grant",
     aadhaar_masked: data.aadhaar_masked ?? "XXXX-XXXX-0000",
