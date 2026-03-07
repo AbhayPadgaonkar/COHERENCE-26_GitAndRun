@@ -1,250 +1,573 @@
-"use client";
+"use client"
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from "react"
+import { getSchemes, createFundFlow } from "@/lib/api"
+import Link from "next/link"
 import { 
-  LayoutDashboard, 
-  Building, 
-  HeartPulse, 
-  BookOpen, 
-  HardHat, 
-  Trees,
-  ArrowRight,
-  Activity,
-  LineChart,
-  ShieldAlert,
-  AlertCircle,
+  Loader2, 
+  Activity, 
+  Menu, 
+  Bell, 
+  Search,
+  ShieldCheck,
+  LayoutDashboard,
+  Building2,
+  AlertTriangle,
+  FileText,
+  Settings,
+  LogOut,
+  ChevronRight,
+  X,
+  ArrowRightLeft,
+  PieChart,
+  BarChart3,
+  MapPin,
+  Send,
   TrendingUp,
-  DollarSign,
-  Loader2,
-  MapPin
-} from 'lucide-react';
-import Link from 'next/link';
+  Building
+} from "lucide-react"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+// Component imports
+import DistrictMonitor from "@/app/components/state/DistrictMonitor"
+import StateFundFlowTracker from "@/app/components/state/StateFundFlowTracker"
+import DistrictPerformanceChart from "@/app/components/state/DistrictPerformanceChart"
+import StateAnomalyAlerts from "@/app/components/state/StateAnomalyAlerts"
 
-interface Scheme {
-  scheme_code: string;
-  scheme_name: string;
-  ministry: string;
-  budget_allocated: number;
-  scheme_type: string;
-  implementing_states?: string[];
-}
+export default function StateDashboard() {
+  const [schemes, setSchemes] = useState([])
+  const [totalBudget, setTotalBudget] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [selectedState, setSelectedState] = useState("Maharashtra")
 
-interface Anomaly {
-  id: number;
-  scheme_id: number;
-  anomaly_type: string;
-  severity: string;
-  description: string;
-}
+  // --- Modal & Form State ---
+  const [isFundTransferModalOpen, setIsFundTransferModalOpen] = useState(false)
+  const [isFundTransferSubmitting, setIsFundTransferSubmitting] = useState(false)
+  const [fundFlowRefreshKey, setFundFlowRefreshKey] = useState(0)
+  
+  // Fund transfer form (State → District)
+  const initialFundTransferState = {
+    scheme_id: "",
+    fund_flow_reference: "",
+    from_level: "State",
+    to_level: "District",
+    from_entity_code: "STATE-MH-001",
+    to_entity_code: "DIST-MH-MUM-001",
+    from_entity_name: "Maharashtra State Government",
+    to_entity_name: "Mumbai District Office",
+    amount: "",
+    payment_mode: "RTGS",
+    sanction_date: new Date().toISOString().split('T')[0],
+    transfer_date: new Date().toISOString().split('T')[0],
+    status: "transferred",
+    installment_number: 1,
+    total_installments: 1,
+    release_type: "STATE_TO_DISTRICT"
+  }
+  const [fundTransferData, setFundTransferData] = useState(initialFundTransferState)
 
-interface NodalAgency {
-  id: number;
-  agency_name: string;
-  agency_type: string;
-  current_balance: number;
-  last_transaction_date: string;
-}
-
-export default function StateGateway() {
-  const [selectedState, setSelectedState] = useState('Maharashtra'); // Default state
-  const [schemes, setSchemes] = useState<Scheme[]>([]);
-  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
-  const [nodalAgencies, setNodalAgencies] = useState<NodalAgency[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Stats
   const [stats, setStats] = useState({
     totalSchemes: 0,
-    totalBudget: 0,
-    districtAlerts: 5,
-    snaBalance: 0
-  });
+    activeFunds: 0,
+    districtsCount: 5,
+    utilizationRate: 0
+  })
+
+  // Load initial dashboard data
+  const loadData = async () => {
+    try {
+      const schemeData = await getSchemes()
+      const schemesList = schemeData?.schemes || []
+      
+      // Filter schemes relevant to the state
+      const stateSchemes = schemesList.filter(s => 
+        s.implementing_states?.includes(selectedState) || !s.implementing_states
+      )
+      
+      setSchemes(stateSchemes)
+
+      const budget = stateSchemes.reduce((sum, s) => sum + (s.budget_allocated || 0), 0)
+      setTotalBudget(budget)
+      
+      setStats({
+        totalSchemes: stateSchemes.length,
+        activeFunds: budget,
+        districtsCount: 5,
+        utilizationRate: 72
+      })
+    } catch (error) {
+      console.error("Dashboard error:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    fetchStateData();
-  }, [selectedState]);
+    loadData()
+  }, [selectedState])
 
-  const fetchStateData = async () => {
+  // --- Handle Fund Transfer Form Submission ---
+  const handleFundTransferSubmit = async (e) => {
+    e.preventDefault()
+    setIsFundTransferSubmitting(true)
+    
     try {
-      setLoading(true);
+      const result = await createFundFlow(fundTransferData)
       
-      // Fetch State-Specific Schemes
-      const schemesRes = await fetch(`${API_BASE_URL}/schemes/state/${selectedState}`);
-      if (schemesRes.ok) {
-        const schemesData = await schemesRes.json();
-        const schemesList = schemesData.schemes || [];
-        setSchemes(schemesList);
-
-        setStats(prev => ({
-          ...prev,
-          totalSchemes: schemesData.count || schemesList.length,
-          totalBudget: schemesData.total_budget || 0
-        }));
+      if (result) {
+        setIsFundTransferModalOpen(false)
+        setFundTransferData(initialFundTransferState)
+        await loadData()
+        setFundFlowRefreshKey(prev => prev + 1)
+        alert("✅ Fund Transfer to District Recorded Successfully!")
       }
-
-      // Fetch State Nodal Agencies
-      try {
-        const snaRes = await fetch(`${API_BASE_URL}/nodal-agencies/idle-funds`);
-        if (snaRes.ok) {
-          const snaData = await snaRes.json();
-          const stateAgencies = snaData.filter((a: NodalAgency) => a.agency_type === 'SNA');
-          setNodalAgencies(stateAgencies);
-          
-          const totalSNABalance = stateAgencies.reduce((sum: number, a: NodalAgency) => sum + a.current_balance, 0);
-          setStats(prev => ({ ...prev, snaBalance: totalSNABalance }));
-        }
-      } catch (err) {
-        console.log('No SNA data available');
-      }
-
     } catch (error) {
-      console.error('Error fetching state data:', error);
+      alert(`❌ Fund Transfer Failed:\n\n${error.message}`)
+      console.error("Fund Transfer Error:", error)
     } finally {
-      setLoading(false);
+      setIsFundTransferSubmitting(false)
     }
-  };
+  }
 
-  const formatCrores = (amount: number) => {
-    return `₹${(amount / 10000000).toFixed(2)} Cr`;
-  };
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-gray-50 flex-col items-center justify-center">
+        <div className="w-16 h-16 relative flex items-center justify-center mb-4">
+          <div className="absolute inset-0 rounded-full border-t-4 border-[#138808] animate-spin"></div>
+          <div className="absolute inset-2 rounded-full border-t-4 border-[#FF9933] animate-spin" style={{ animationDirection: 'reverse' }}></div>
+        </div>
+        <h2 className="text-xl font-bold text-[#138808] tracking-tight">Initializing State Dashboard</h2>
+        <p className="text-sm text-gray-500 mt-2">Loading {selectedState} financial data...</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] font-sans selection:bg-[#FF9933] selection:text-white pb-20">
+    <div className="flex h-screen bg-gray-50 font-sans">
       
-      {/* Navbar */}
-      <header className="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" 
-              alt="Satyameva Jayate" 
-              className="h-10 sm:h-12 w-auto drop-shadow-sm"
-            />
-            <img 
-              src="/PFMS-2.png" 
-              alt="PFMS Logo" 
-              className="h-8 sm:h-10 w-auto drop-shadow-sm"
-            />
-            <div className="border-l-2 border-gray-200 pl-3 sm:pl-4">
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#000080] tracking-tight">LokNidhi</h1>
-              <p className="text-[9px] sm:text-xs text-[#138808] uppercase font-bold tracking-[0.1em] sm:tracking-[0.2em] mt-0.5">
-                State Government Access
-              </p>
+      {/* Persistent Sidebar */}
+      <aside className={`${sidebarOpen ? 'w-64' : 'w-0'} transition-all duration-300 bg-gradient-to-br from-[#138808] to-[#0a5c04] text-white flex-shrink-0 overflow-hidden`}>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-2xl font-extrabold tracking-tight">LokNidhi</h2>
+              <p className="text-[10px] text-green-200 uppercase tracking-[0.2em] font-bold">State Portal</p>
             </div>
           </div>
-          
-          <nav className="hidden md:flex items-center space-x-6 font-semibold text-gray-600">
-            <div className="flex items-center text-sm font-medium text-green-700 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
-              <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span> Active Session
+
+          {/* State Selector */}
+          <div className="mb-6 bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+            <p className="text-xs text-green-200 mb-2 font-semibold">Selected State</p>
+            <div className="flex items-center space-x-2">
+              <MapPin className="w-4 h-4" />
+              <span className="font-bold">{selectedState}</span>
             </div>
-            <Link href="/login" className="text-sm text-gray-500 hover:text-red-600 transition-colors">
-              Switch Role
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-3 mb-8">
+            <button
+              onClick={() => setIsFundTransferModalOpen(true)}
+              className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white font-bold py-3 px-4 rounded-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-between group"
+            >
+              <span className="flex items-center">
+                <Send className="w-5 h-5 mr-3" />
+                Transfer to District
+              </span>
+              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+
+          {/* Navigation */}
+          <nav className="space-y-2">
+            <Link href="/state/main_dashboard" className="flex items-center space-x-3 px-4 py-3 bg-white/20 backdrop-blur-sm rounded-lg border border-white/30 font-semibold hover:bg-white/30 transition-all">
+              <LayoutDashboard className="w-5 h-5" />
+              <span>Overview</span>
+            </Link>
+            <Link href="/state/districts" className="flex items-center space-x-3 px-4 py-3 hover:bg-white/10 rounded-lg transition-all">
+              <Building2 className="w-5 h-5" />
+              <span>Districts</span>
+            </Link>
+            <Link href="/state/schemes" className="flex items-center space-x-3 px-4 py-3 hover:bg-white/10 rounded-lg transition-all">
+              <FileText className="w-5 h-5" />
+              <span>State Schemes</span>
+            </Link>
+            <Link href="/state/fund-flow" className="flex items-center space-x-3 px-4 py-3 hover:bg-white/10 rounded-lg transition-all">
+              <ArrowRightLeft className="w-5 h-5" />
+              <span>Fund Flows</span>
+            </Link>
+            <Link href="/state/anomalies" className="flex items-center space-x-3 px-4 py-3 hover:bg-white/10 rounded-lg transition-all">
+              <AlertTriangle className="w-5 h-5" />
+              <span>Anomalies</span>
             </Link>
           </nav>
+
+          <div className="mt-auto pt-8 border-t border-white/20">
+            <Link href="/login" className="flex items-center space-x-3 px-4 py-3 hover:bg-white/10 rounded-lg transition-all text-green-200">
+              <LogOut className="w-5 h-5" />
+              <span>Switch Role</span>
+            </Link>
+          </div>
         </div>
-      </header>
+      </aside>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* Welcome Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8 pb-6 border-b border-gray-200">
-          <div>
-            <h2 className="text-3xl font-extrabold text-[#000080] tracking-tight">Welcome, State Authority</h2>
-            <p className="text-gray-500 mt-1 flex items-center">
-              <MapPin className="w-4 h-4 mr-1" />
-              {selectedState} • State-level budget utilization and district distributions
-            </p>
-          </div>
-          <div className="mt-4 md:mt-0 px-4 py-2 bg-yellow-50 text-yellow-800 rounded-lg border border-yellow-200 font-medium flex items-center shadow-sm">
-            <ShieldAlert className="w-4 h-4 mr-2 text-yellow-600" />
-            {stats.districtAlerts} Districts Nearing Fund Lapse
-          </div>
-        </div>
-
-        {/* Stats Overview */}
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-[#138808]" />
-            <span className="ml-3 text-gray-600">Loading state data...</span>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                    <Building className="w-6 h-6 text-green-600" />
-                  </div>
-                  <TrendingUp className="w-5 h-5 text-green-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{stats.totalSchemes}</h4>
-                <p className="text-sm text-gray-500 mt-1">State Schemes</p>
-              </div>
-
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <Activity className="w-5 h-5 text-blue-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{formatCrores(stats.totalBudget)}</h4>
-                <p className="text-sm text-gray-500 mt-1">State Budget</p>
-              </div>
-
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
-                    <AlertCircle className="w-6 h-6 text-yellow-600" />
-                  </div>
-                  <ShieldAlert className="w-5 h-5 text-yellow-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{stats.districtAlerts}</h4>
-                <p className="text-sm text-gray-500 mt-1">District Alerts</p>
-              </div>
-
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-                    <LineChart className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <Activity className="w-5 h-5 text-purple-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{nodalAgencies.length}</h4>
-                <p className="text-sm text-gray-500 mt-1">SNA Accounts</p>
+        {/* Top Navigation */}
+        <header className="bg-white border-b border-gray-200 shadow-sm z-10">
+          <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <Menu className="w-5 h-5 text-gray-600" />
+              </button>
+              <div>
+                <h1 className="text-2xl font-extrabold text-[#138808]">State Command Center</h1>
+                <p className="text-sm text-gray-500 flex items-center mt-0.5">
+                  <MapPin className="w-3 h-3 mr-1" />
+                  {selectedState} • District Fund Management
+                </p>
               </div>
             </div>
-
-            {/* State Schemes List */}
-            {schemes.length > 0 && (
-              <div className="mb-12 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">{selectedState} State Schemes</h3>
-                  <Link href="/dashboard/state/schemes" className="text-[#138808] font-semibold text-sm hover:text-[#000080] transition-colors">
-                    View All →
-                  </Link>
+            
+            <div className="flex items-center space-x-4">
+              <button className="p-2 hover:bg-gray-100 rounded-lg relative">
+                <Bell className="w-5 h-5 text-gray-600" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              </button>
+              <button className="p-2 hover:bg-gray-100 rounded-lg">
+                <Settings className="w-5 h-5 text-gray-600" />
+              </button>
+              <div className="flex items-center space-x-2 pl-4 border-l border-gray-200">
+                <div className="w-8 h-8 bg-gradient-to-br from-[#138808] to-[#0a5c04] rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  SA
                 </div>
-                <div className="space-y-3">
-                  {schemes.slice(0, 5).map((scheme, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{scheme.scheme_name}</h4>
-                        <p className="text-sm text-gray-500">{scheme.ministry} • {scheme.scheme_type}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-[#138808]">{formatCrores(scheme.budget_allocated)}</p>
-                      </div>
-                    </div>
-                  ))}
+                <span className="text-sm font-semibold text-gray-700">State Admin</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Dashboard Content */}
+        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
+                  <Building className="w-6 h-6 text-green-600" />
+                </div>
+                <TrendingUp className="w-5 h-5 text-green-500" />
+              </div>
+              <h4 className="text-3xl font-bold text-gray-900">{stats.totalSchemes}</h4>
+              <p className="text-sm text-gray-500 mt-1">State Schemes</p>
+            </div>
+
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-blue-600" />
+                </div>
+                <Activity className="w-5 h-5 text-blue-500" />
+              </div>
+              <h4 className="text-2xl font-bold text-gray-900">{formatCurrency(stats.activeFunds)}</h4>
+              <p className="text-sm text-gray-500 mt-1">Active Funds</p>
+            </div>
+
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
+                  <MapPin className="w-6 h-6 text-purple-600" />
+                </div>
+                <Building2 className="w-5 h-5 text-purple-500" />
+              </div>
+              <h4 className="text-3xl font-bold text-gray-900">{stats.districtsCount}</h4>
+              <p className="text-sm text-gray-500 mt-1">Districts</p>
+            </div>
+
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-6 h-6 text-amber-600" />
+                </div>
+                <TrendingUp className="w-5 h-5 text-amber-500" />
+              </div>
+              <h4 className="text-3xl font-bold text-gray-900">{stats.utilizationRate}%</h4>
+              <p className="text-sm text-gray-500 mt-1">Avg Utilization</p>
+            </div>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column - 2/3 width */}
+            <section className="lg:col-span-2 space-y-8">
+              {/* District Monitor */}
+              <DistrictMonitor stateName={selectedState} />
+
+              {/* Fund Flow Tracker */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Fund Flow Topology</h2>
+                <StateFundFlowTracker 
+                  schemes={schemes} 
+                  stateName={selectedState}
+                  refreshTrigger={fundFlowRefreshKey} 
+                />
+              </div>
+
+              {/* District Performance Chart */}
+              <DistrictPerformanceChart stateName={selectedState} />
+            </section>
+
+            {/* Right Column - 1/3 width */}
+            <section className="lg:col-span-1">
+              <StateAnomalyAlerts stateName={selectedState} />
+            </section>
+          </div>
+
+        </main>
+      </div>
+
+      {/* Fund Transfer Modal (State → District) */}
+      {isFundTransferModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-[#138808] to-[#0a5c04] p-6 text-white flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center">
+                  <Send className="w-6 h-6 mr-3" />
+                  Transfer Fund to District
+                </h2>
+                <p className="text-sm text-green-100 mt-1">Allocate funds from state to district level</p>
+              </div>
+              <button 
+                onClick={() => setIsFundTransferModalOpen(false)} 
+                className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleFundTransferSubmit} className="p-6 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Scheme Selection */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Select Scheme</label>
+                  <select
+                    value={fundTransferData.scheme_id}
+                    onChange={(e) => setFundTransferData({...fundTransferData, scheme_id: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808] transition-colors"
+                    required
+                  >
+                    <option value="">-- Select Scheme --</option>
+                    {schemes.map((scheme, index) => (
+                      <option key={`${scheme.id || scheme.scheme_code}-${index}`} value={scheme.id || scheme.scheme_code}>
+                        {scheme.name || scheme.scheme_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Reference Number */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Fund Flow Reference</label>
+                  <input
+                    type="text"
+                    value={fundTransferData.fund_flow_reference}
+                    onChange={(e) => setFundTransferData({...fundTransferData, fund_flow_reference: e.target.value})}
+                    placeholder="FT-MH-2026-001"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  />
+                </div>
+
+                {/* From Entity */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">From Entity Code</label>
+                  <input
+                    type="text"
+                    value={fundTransferData.from_entity_code}
+                    onChange={(e) => setFundTransferData({...fundTransferData, from_entity_code: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">From Entity Name</label>
+                  <input
+                    type="text"
+                    value={fundTransferData.from_entity_name}
+                    onChange={(e) => setFundTransferData({...fundTransferData, from_entity_name: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  />
+                </div>
+
+                {/* To Entity */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">To District Code</label>
+                  <input
+                    type="text"
+                    value={fundTransferData.to_entity_code}
+                    onChange={(e) => setFundTransferData({...fundTransferData, to_entity_code: e.target.value})}
+                    placeholder="DIST-MH-MUM-001"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">To District Name</label>
+                  <input
+                    type="text"
+                    value={fundTransferData.to_entity_name}
+                    onChange={(e) => setFundTransferData({...fundTransferData, to_entity_name: e.target.value})}
+                    placeholder="Mumbai District Office"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  />
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Transfer Amount (₹)</label>
+                  <input
+                    type="number"
+                    value={fundTransferData.amount}
+                    onChange={(e) => setFundTransferData({...fundTransferData, amount: e.target.value})}
+                    placeholder="50000000"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  />
+                </div>
+
+                {/* Payment Mode */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Mode</label>
+                  <select
+                    value={fundTransferData.payment_mode}
+                    onChange={(e) => setFundTransferData({...fundTransferData, payment_mode: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  >
+                    <option value="RTGS">RTGS</option>
+                    <option value="NEFT">NEFT</option>
+                    <option value="IMPS">IMPS</option>
+                    <option value="UPI">UPI</option>
+                    <option value="CHECK">Check</option>
+                  </select>
+                </div>
+
+                {/* Dates */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Sanction Date</label>
+                  <input
+                    type="date"
+                    value={fundTransferData.sanction_date}
+                    onChange={(e) => setFundTransferData({...fundTransferData, sanction_date: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Transfer Date</label>
+                  <input
+                    type="date"
+                    value={fundTransferData.transfer_date}
+                    onChange={(e) => setFundTransferData({...fundTransferData, transfer_date: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  />
+                </div>
+
+                {/* Installment Info */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Installment Number</label>
+                  <input
+                    type="number"
+                    value={fundTransferData.installment_number}
+                    onChange={(e) => setFundTransferData({...fundTransferData, installment_number: parseInt(e.target.value)})}
+                    min="1"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Total Installments</label>
+                  <input
+                    type="number"
+                    value={fundTransferData.total_installments}
+                    onChange={(e) => setFundTransferData({...fundTransferData, total_installments: parseInt(e.target.value)})}
+                    min="1"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  />
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+                  <select
+                    value={fundTransferData.status}
+                    onChange={(e) => setFundTransferData({...fundTransferData, status: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#138808]"
+                    required
+                  >
+                    <option value="transferred">Transferred</option>
+                    <option value="credited">Credited</option>
+                    <option value="pending">Pending</option>
+                  </select>
                 </div>
               </div>
-            )}
-          </>
-        )}
 
-        
-      </main>
+              {/* Submit Button */}
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsFundTransferModalOpen(false)}
+                  className="px-6 py-2.5 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isFundTransferSubmitting}
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#138808] to-[#0a5c04] text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {isFundTransferSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Transfer Funds
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  )
 }

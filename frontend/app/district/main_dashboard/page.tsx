@@ -1,258 +1,512 @@
-"use client";
+"use client"
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from "react"
+import { getSchemes, createFundFlow } from "@/lib/api"
+import Link from "next/link"
 import { 
-  LayoutDashboard, 
-  Building, 
-  Stethoscope, 
-  GraduationCap, 
-  HardHat, 
-  Sprout,
-  ArrowRight,
-  Activity,
-  Users,
+  Loader2, 
+  Activity, 
+  Menu, 
+  Bell, 
+  Search,
+  ShieldCheck,
+  LayoutDashboard,
+  Building2,
   AlertTriangle,
-  DollarSign,
+  FileText,
+  Settings,
+  LogOut,
+  ChevronRight,
+  X,
+  ArrowRightLeft,
+  PieChart,
+  BarChart3,
+  MapPin,
+  Send,
   TrendingUp,
-  Loader2,
-  MapPin
-} from 'lucide-react';
-import Link from 'next/link';
+  Users
+} from "lucide-react"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+// Component imports
+import BlockMonitor from "@/app/components/district/BlockMonitor"
+import DistrictFundFlowTracker from "@/app/components/district/DistrictFundFlowTracker"
+import BeneficiaryPaymentChart from "@/app/components/district/BeneficiaryPaymentChart"
+import DistrictAnomalyAlerts from "@/app/components/district/DistrictAnomalyAlerts"
 
-interface Scheme {
-  scheme_code: string;
-  scheme_name: string;
-  budget_allocated: number;
-  scheme_type: string;
-}
+export default function DistrictDashboard() {
+  const [schemes, setSchemes] = useState([])
+  const [totalBudget, setTotalBudget] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [selectedDistrict, setSelectedDistrict] = useState("Mumbai")
 
-interface NodalAgency {
-  id: number;
-  agency_name: string;
-  current_balance: number;
-  last_transaction_date: string;
-}
+  // --- Modal & Form State ---
+  const [isFundTransferModalOpen, setIsFundTransferModalOpen] = useState(false)
+  const [isFundTransferSubmitting, setIsFundTransferSubmitting] = useState(false)
+  const [fundFlowRefreshKey, setFundFlowRefreshKey] = useState(0)
+  
+  // Fund transfer form (District → Beneficiary)
+  const initialFundTransferState = {
+    scheme_id: "",
+    fund_flow_reference: "",
+    from_level: "District",
+    to_level: "Beneficiary",
+    from_entity_code: "DIST-MH-MUM-001",
+    to_entity_code: "BEN-001",
+    from_entity_name: "Mumbai District Office",
+    to_entity_name: "Beneficiary Name",
+    amount: "",
+    payment_mode: "Direct Benefit Transfer",
+    sanction_date: new Date().toISOString().split('T')[0],
+    transfer_date: new Date().toISOString().split('T')[0],
+    status: "transferred",
+    installment_number: 1,
+    total_installments: 1,
+    release_type: "DISTRICT_TO_BENEFICIARY"
+  }
+  const [fundTransferData, setFundTransferData] = useState(initialFundTransferState)
 
-export default function DistrictGateway() {
-  const [selectedDistrict, setSelectedDistrict] = useState('Pune'); // Default district
-  const [schemes, setSchemes] = useState<Scheme[]>([]);
-  const [nodalAgency, setNodalAgency] = useState<NodalAgency | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Stats
   const [stats, setStats] = useState({
     totalSchemes: 0,
-    districtBudget: 0,
-    blockOffices: 12,
-    dnaBalance: 0,
-    lapseWarnings: 1
-  });
+    activeFunds: 0,
+    blocksCount: 12,
+    beneficiariesCount: 0
+  })
+
+  // Load initial dashboard data
+  const loadData = async () => {
+    try {
+      const schemeData = await getSchemes()
+      const schemesList = schemeData?.schemes || []
+      
+      // Filter schemes relevant to the district
+      const districtSchemes = schemesList.filter((s: any) => 
+        s.implementing_states?.includes("Maharashtra") || !s.implementing_states
+      )
+      
+      setSchemes(districtSchemes)
+
+      const budget = districtSchemes.reduce((sum: number, s: any) => sum + (s.budget_allocated || 0), 0)
+      setTotalBudget(budget)
+      
+      setStats({
+        totalSchemes: districtSchemes.length,
+        activeFunds: budget,
+        blocksCount: 12,
+        beneficiariesCount: 15000
+      })
+    } catch (error) {
+      console.error("Dashboard error:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    fetchDistrictData();
-  }, [selectedDistrict]);
+    loadData()
+  }, [selectedDistrict])
 
-  const fetchDistrictData = async () => {
+  // --- Handle Fund Transfer Form Submission ---
+  const handleFundTransferSubmit = async (e: any) => {
+    e.preventDefault()
+    setIsFundTransferSubmitting(true)
+    
     try {
-      setLoading(true);
+      const result = await createFundFlow(fundTransferData)
       
-      // Fetch All Schemes (filter by district on frontend or create district endpoint)
-      const schemesRes = await fetch(`${API_BASE_URL}/schemes/?limit=50`);
-      if (schemesRes.ok) {
-        const schemesData = await schemesRes.json();
-        const schemesList = schemesData.schemes || [];
-        setSchemes(schemesList.slice(0, 10)); // Show subset for district
-
-        const districtBudget = schemesList.slice(0, 10).reduce((sum: number, s: Scheme) => sum + (s.budget_allocated || 0), 0);
-        
-        setStats(prev => ({
-          ...prev,
-          totalSchemes: 10,
-          districtBudget
-        }));
+      if (result) {
+        setIsFundTransferModalOpen(false)
+        setFundTransferData(initialFundTransferState)
+        await loadData()
+        setFundFlowRefreshKey(prev => prev + 1)
+        alert("✅ Payment to Beneficiary Recorded Successfully!")
       }
-
-      // Fetch District Nodal Agency (DNA) data
-      try {
-        const dnaRes = await fetch(`${API_BASE_URL}/nodal-agencies/1`); // Example: DNA ID 1
-        if (dnaRes.ok) {
-          const dnaData = await dnaRes.json();
-          setNodalAgency(dnaData);
-          setStats(prev => ({ ...prev, dnaBalance: dnaData.current_balance || 0 }));
-        }
-      } catch (err) {
-        console.log('No DNA data');
-      }
-
-    } catch (error) {
-      console.error('Error fetching district data:', error);
+    } catch (error: any) {
+      alert(`❌ Payment Failed:\n\n${error.message}`)
+      console.error("Payment Error:", error)
     } finally {
-      setLoading(false);
+      setIsFundTransferSubmitting(false)
     }
-  };
+  }
 
-  const formatCrores = (amount: number) => {
-    return `₹${(amount / 10000000).toFixed(2)} Cr`;
-  };
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-gray-50 flex-col items-center justify-center">
+        <div className="w-16 h-16 relative flex items-center justify-center mb-4">
+          <div className="absolute inset-0 rounded-full border-t-4 border-[#000080] animate-spin"></div>
+          <div className="absolute inset-2 rounded-full border-t-4 border-[#FF9933] animate-spin" style={{ animationDirection: 'reverse' }}></div>
+        </div>
+        <h2 className="text-xl font-bold text-[#000080] tracking-tight">Initializing District Dashboard</h2>
+        <p className="text-sm text-gray-500 mt-2">Loading {selectedDistrict} operational data...</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] font-sans selection:bg-[#000080] selection:text-white pb-20">
+    <div className="flex h-screen bg-gray-50 font-sans">
       
-      {/* Navbar */}
-      <header className="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" 
-              alt="Satyameva Jayate" 
-              className="h-10 sm:h-12 w-auto drop-shadow-sm"
-            />
-            <img 
-              src="/PFMS-2.png" 
-              alt="PFMS Logo" 
-              className="h-8 sm:h-10 w-auto drop-shadow-sm"
-            />
-            <div className="border-l-2 border-gray-200 pl-3 sm:pl-4">
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#000080] tracking-tight">LokNidhi</h1>
-              <p className="text-[9px] sm:text-xs text-[#ea580c] uppercase font-bold tracking-[0.1em] sm:tracking-[0.2em] mt-0.5">
-                District Authority Access
-              </p>
+      {/* Persistent Sidebar */}
+      <aside className={`${sidebarOpen ? 'w-64' : 'w-0'} transition-all duration-300 bg-gradient-to-br from-[#000080] to-[#000050] text-white flex-shrink-0 overflow-hidden`}>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <div className="flex items-center space-x-2 mb-1">
+                <ShieldCheck className="w-6 h-6 text-[#FF9933]" />
+                <h2 className="text-lg font-bold">LokNidhi</h2>
+              </div>
+              <p className="text-xs text-blue-200">District Portal</p>
             </div>
           </div>
-          
-          <nav className="hidden md:flex items-center space-x-6 font-semibold text-gray-600">
-            <div className="flex items-center text-sm font-medium text-green-700 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
-              <span className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span> Active Session
-            </div>
-            <Link href="/login" className="text-sm text-gray-500 hover:text-red-600 transition-colors">
-              Switch Role
+
+          {/* Selected District */}
+          <div className="mb-6 p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+            <p className="text-xs text-blue-200 mb-1">Selected District</p>
+            <p className="font-bold">{selectedDistrict}</p>
+          </div>
+
+          {/* Transfer to Beneficiary Button */}
+          <div className="mb-6">
+            <button
+              onClick={() => setIsFundTransferModalOpen(true)}
+              className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white font-bold py-3 px-4 rounded-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-between group"
+            >
+              <span className="flex items-center">
+                <Send className="w-5 h-5 mr-3" />
+                Pay Beneficiary
+              </span>
+              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+
+          {/* Navigation */}
+          <nav className="space-y-2">
+            <Link href="/district/main_dashboard" className="flex items-center space-x-3 px-4 py-3 bg-white/20 backdrop-blur-sm rounded-lg border border-white/30 font-semibold hover:bg-white/30 transition-all">
+              <LayoutDashboard className="w-5 h-5" />
+              <span>Overview</span>
+            </Link>
+            <Link href="/district/blocks" className="flex items-center space-x-3 px-4 py-3 hover:bg-white/10 rounded-lg transition-all">
+              <Building2 className="w-5 h-5" />
+              <span>Blocks</span>
+            </Link>
+            <Link href="/district/beneficiaries" className="flex items-center space-x-3 px-4 py-3 hover:bg-white/10 rounded-lg transition-all">
+              <Users className="w-5 h-5" />
+              <span>Beneficiaries</span>
+            </Link>
+            <Link href="/district/fund-flow" className="flex items-center space-x-3 px-4 py-3 hover:bg-white/10 rounded-lg transition-all">
+              <ArrowRightLeft className="w-5 h-5" />
+              <span>Fund Flows</span>
+            </Link>
+            <Link href="/district/anomalies" className="flex items-center space-x-3 px-4 py-3 hover:bg-white/10 rounded-lg transition-all">
+              <AlertTriangle className="w-5 h-5" />
+              <span>Anomalies</span>
             </Link>
           </nav>
+
+          <div className="mt-auto pt-8 border-t border-white/20">
+            <Link href="/login" className="flex items-center space-x-3 px-4 py-3 hover:bg-white/10 rounded-lg transition-all text-blue-200">
+              <LogOut className="w-5 h-5" />
+              <span>Switch Role</span>
+            </Link>
+          </div>
         </div>
-      </header>
+      </aside>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* Welcome Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8 pb-6 border-b border-gray-200">
-          <div>
-            <h2 className="text-3xl font-extrabold text-[#000080] tracking-tight">Welcome, District Magistrate</h2>
-            <p className="text-gray-500 mt-1 flex items-center">
-              <MapPin className="w-4 h-4 mr-1" />
-              {selectedDistrict} District • Block-level execution and beneficiary transfers
-            </p>
-          </div>
-          <div className="mt-4 md:mt-0 px-4 py-2 bg-red-50 text-red-800 rounded-lg border border-red-200 font-medium flex items-center shadow-sm">
-            <AlertTriangle className="w-4 h-4 mr-2 text-red-600 animate-pulse" />
-            {stats.lapseWarnings} Critical Fund Lapse Warning
-          </div>
-        </div>
-
-        {/* Stats Overview */}
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-[#ea580c]" />
-            <span className="ml-3 text-gray-600">Loading district data...</span>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
-                    <Building className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <TrendingUp className="w-5 h-5 text-orange-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{stats.totalSchemes}</h4>
-                <p className="text-sm text-gray-500 mt-1">District Schemes</p>
-              </div>
-
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <Activity className="w-5 h-5 text-blue-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{formatCrores(stats.districtBudget)}</h4>
-                <p className="text-sm text-gray-500 mt-1">District Budget</p>
-              </div>
-
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                    <Users className="w-6 h-6 text-green-600" />
-                  </div>
-                  <Activity className="w-5 h-5 text-green-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{stats.blockOffices}</h4>
-                <p className="text-sm text-gray-500 mt-1">Block Offices</p>
-              </div>
-
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-                    <Activity className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <AlertTriangle className="w-5 h-5 text-red-500" />
-                </div>
-                <h4 className="text-2xl font-bold text-gray-900">{stats.lapseWarnings}</h4>
-                <p className="text-sm text-gray-500 mt-1">Lapse Warnings</p>
+        {/* Top Navigation */}
+        <header className="bg-white border-b border-gray-200 shadow-sm z-10">
+          <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <Menu className="w-5 h-5 text-gray-600" />
+              </button>
+              <div>
+                <h1 className="text-2xl font-extrabold text-[#000080]">District Command Center</h1>
+                <p className="text-sm text-gray-500 flex items-center mt-0.5">
+                  <MapPin className="w-3 h-3 mr-1" />
+                  {selectedDistrict} • Beneficiary Payment Management
+                </p>
               </div>
             </div>
-
-            {/* District Schemes */}
-            {schemes.length > 0 && (
-              <div className="mb-12 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">{selectedDistrict} District Schemes</h3>
-                  <Link href="/dashboard/district/schemes" className="text-[#ea580c] font-semibold text-sm hover:text-[#000080] transition-colors">
-                    View All →
-                  </Link>
+            
+            <div className="flex items-center space-x-4">
+              <button className="p-2 hover:bg-gray-100 rounded-lg relative">
+                <Bell className="w-5 h-5 text-gray-600" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              </button>
+              <button className="p-2 hover:bg-gray-100 rounded-lg">
+                <Settings className="w-5 h-5 text-gray-600" />
+              </button>
+              <div className="flex items-center space-x-3 pl-4 border-l border-gray-200">
+                <div className="w-8 h-8 rounded-full bg-[#000080] text-white flex items-center justify-center font-bold text-sm">
+                  DA
                 </div>
-                <div className="space-y-3">
-                  {schemes.slice(0, 5).map((scheme, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{scheme.scheme_name}</h4>
-                        <p className="text-sm text-gray-500">{scheme.scheme_type}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-[#ea580c]">{formatCrores(scheme.budget_allocated)}</p>
-                      </div>
-                    </div>
+                <div className="hidden md:block">
+                  <p className="text-sm font-semibold text-gray-900">District Admin</p>
+                  <p className="text-xs text-gray-500">{selectedDistrict}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Dashboard Content */}
+        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50/30 p-8">
+          
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-orange-600" />
+                </div>
+                <TrendingUp className="w-5 h-5 text-orange-500" />
+              </div>
+              <h3 className="text-3xl font-extrabold text-gray-900">{stats.totalSchemes}</h3>
+              <p className="text-sm text-gray-500 mt-1">Active Schemes</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-blue-600" />
+                </div>
+                <Activity className="w-5 h-5 text-blue-500" />
+              </div>
+              <h3 className="text-3xl font-extrabold text-gray-900">{formatCurrency(stats.activeFunds)}</h3>
+              <p className="text-sm text-gray-500 mt-1">Active Funds</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
+                  <Building2 className="w-6 h-6 text-green-600" />
+                </div>
+                <Activity className="w-5 h-5 text-green-500" />
+              </div>
+              <h3 className="text-3xl font-extrabold text-gray-900">{stats.blocksCount}</h3>
+              <p className="text-sm text-gray-500 mt-1">Blocks Count</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
+                  <Users className="w-6 h-6 text-purple-600" />
+                </div>
+                <TrendingUp className="w-5 h-5 text-purple-500" />
+              </div>
+              <h3 className="text-3xl font-extrabold text-gray-900">{stats.beneficiariesCount.toLocaleString()}</h3>
+              <p className="text-sm text-gray-500 mt-1">Beneficiaries</p>
+            </div>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column - 2/3 width */}
+            <section className="lg:col-span-2 space-y-8">
+              {/* Block Monitor */}
+              <BlockMonitor districtName={selectedDistrict} />
+
+              {/* Fund Flow Tracker */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                <h2 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Fund Flow Topology</h2>
+                <DistrictFundFlowTracker 
+                  schemes={schemes} 
+                  districtName={selectedDistrict}
+                  refreshTrigger={fundFlowRefreshKey} 
+                />
+              </div>
+
+              {/* Beneficiary Payment Chart */}
+              <BeneficiaryPaymentChart districtName={selectedDistrict} />
+            </section>
+
+            {/* Right Column - 1/3 width */}
+            <section className="lg:col-span-1">
+              <DistrictAnomalyAlerts districtName={selectedDistrict} />
+            </section>
+          </div>
+
+        </main>
+      </div>
+
+      {/* Fund Transfer Modal (District → Beneficiary) */}
+      {isFundTransferModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-[#000080] to-[#000050] p-6 text-white flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center">
+                  <Send className="w-6 h-6 mr-3" />
+                  Pay Beneficiary
+                </h2>
+                <p className="text-sm text-blue-100 mt-1">Direct Benefit Transfer to eligible beneficiary</p>
+              </div>
+              <button 
+                onClick={() => setIsFundTransferModalOpen(false)} 
+                className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <form onSubmit={handleFundTransferSubmit} className="p-6 space-y-4 overflow-y-auto">
+              {/* Scheme Selection */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Scheme *</label>
+                <select
+                  value={fundTransferData.scheme_id}
+                  onChange={(e) => setFundTransferData({...fundTransferData, scheme_id: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#000080] transition-colors"
+                  required
+                >
+                  <option value="">-- Select Scheme --</option>
+                  {schemes.map((scheme: any, index) => (
+                    <option key={`${scheme.id || scheme.scheme_code}-${index}`} value={scheme.id || scheme.scheme_code}>
+                      {scheme.name || scheme.scheme_name}
+                    </option>
                   ))}
+                </select>
+              </div>
+
+              {/* Reference Number */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Reference Number *</label>
+                <input
+                  type="text"
+                  value={fundTransferData.fund_flow_reference}
+                  onChange={(e) => setFundTransferData({...fundTransferData, fund_flow_reference: e.target.value})}
+                  placeholder="e.g., BEN-MUM-2024-001"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#000080] transition-colors"
+                  required
+                />
+              </div>
+
+              {/* Beneficiary Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Beneficiary Name *</label>
+                  <input
+                    type="text"
+                    value={fundTransferData.to_entity_name}
+                    onChange={(e) => setFundTransferData({...fundTransferData, to_entity_name: e.target.value})}
+                    placeholder="Full Name"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#000080] transition-colors"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Beneficiary ID *</label>
+                  <input
+                    type="text"
+                    value={fundTransferData.to_entity_code}
+                    onChange={(e) => setFundTransferData({...fundTransferData, to_entity_code: e.target.value})}
+                    placeholder="e.g., BEN-001"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#000080] transition-colors"
+                    required
+                  />
                 </div>
               </div>
-            )}
 
-            {/* DNA Balance Card */}
-            {nodalAgency && (
-              <div className="mb-12 bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-6 shadow-sm border border-purple-100">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">District Nodal Agency (DNA) Balance</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Agency Name</p>
-                    <p className="font-bold text-gray-900">{nodalAgency.agency_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Current Balance</p>
-                    <p className="font-bold text-purple-600 text-xl">{formatCrores(nodalAgency.current_balance)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Last Transaction</p>
-                    <p className="font-semibold text-gray-700">{new Date(nodalAgency.last_transaction_date).toLocaleDateString()}</p>
-                  </div>
+              {/* Amount */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Amount (₹) *</label>
+                <input
+                  type="number"
+                  value={fundTransferData.amount}
+                  onChange={(e) => setFundTransferData({...fundTransferData, amount: e.target.value})}
+                  placeholder="Enter amount in Rupees"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#000080] transition-colors"
+                  required
+                />
+              </div>
+
+              {/* Payment Mode */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Payment Mode *</label>
+                <select
+                  value={fundTransferData.payment_mode}
+                  onChange={(e) => setFundTransferData({...fundTransferData, payment_mode: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#000080] transition-colors"
+                  required
+                >
+                  <option value="Direct Benefit Transfer">Direct Benefit Transfer (DBT)</option>
+                  <option value="RTGS">RTGS</option>
+                  <option value="NEFT">NEFT</option>
+                  <option value="Cheque">Cheque</option>
+                </select>
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Sanction Date *</label>
+                  <input
+                    type="date"
+                    value={fundTransferData.sanction_date}
+                    onChange={(e) => setFundTransferData({...fundTransferData, sanction_date: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#000080] transition-colors"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Transfer Date *</label>
+                  <input
+                    type="date"
+                    value={fundTransferData.transfer_date}
+                    onChange={(e) => setFundTransferData({...fundTransferData, transfer_date: e.target.value})}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#000080] transition-colors"
+                    required
+                  />
                 </div>
               </div>
-            )}
-          </>
-        )}
 
-
-      </main>
+              {/* Submit Buttons */}
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setIsFundTransferModalOpen(false)}
+                  className="px-6 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 font-semibold rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isFundTransferSubmitting}
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#000080] to-[#000050] hover:from-[#000060] hover:to-[#000030] text-white font-semibold rounded-lg transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isFundTransferSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Process Payment
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  )
 }
