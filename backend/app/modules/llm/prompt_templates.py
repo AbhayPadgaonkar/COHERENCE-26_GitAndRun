@@ -210,6 +210,8 @@ Create a brief executive summary (150-200 words) highlighting key insights and a
 
 def format_currency(amount: float) -> str:
     """Format amount in Crore/Lakh"""
+    # Handle None safely
+    amount = float(amount or 0)
     if amount >= 10000000:  # >= 1 Crore
         return f"₹{amount/10000000:.2f} Crore"
     elif amount >= 100000:  # >= 1 Lakh

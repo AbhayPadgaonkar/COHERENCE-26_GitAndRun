@@ -1,17 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 // Import Firebase auth methods
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/database/firebase"; // <-- Adjust this path to your Firebase config
+import { auth } from "@/database/firebase";
 
 import {
   Shield,
   LogIn,
   ArrowRight,
   Loader2,
-  LockKeyhole
+  LockKeyhole,
+  AlertCircle,
+  CheckCircle,
+  Wallet
 } from "lucide-react";
 import {
   Card,
@@ -24,6 +27,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
 
 export default function LokNidhiLogin() {
@@ -34,11 +38,41 @@ export default function LokNidhiLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [metamaskLoading, setMetamaskLoading] = useState(false);
+  const [authStep, setAuthStep] = useState<"idle" | "connecting" | "signing" | "verifying">("idle");
+  const [hasMetamask, setHasMetamask] = useState(false);
+  const [isMetamaskAuthenticated, setIsMetamaskAuthenticated] = useState(false);
+  const [walletAddress, setWalletAddress] = useState("");
+
+  // Check for MetaMask on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hasEthereum = !!(window as any).ethereum;
+      setHasMetamask(hasEthereum);
+      
+      // Don't auto-load localStorage - always start fresh
+      // Only restore if user explicitly wants to continue session
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("restoreSession") === "true") {
+        const storedToken = localStorage.getItem("walletToken");
+        const storedAddress = localStorage.getItem("walletAddress");
+        if (storedToken && storedAddress) {
+          setIsMetamaskAuthenticated(true);
+          setWalletAddress(storedAddress);
+        }
+      }
+    }
+  }, []);
 
   // Firebase Log In Handler
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!isMetamaskAuthenticated) {
+      setError("Please authenticate with MetaMask first to proceed with email/password login.");
+      return;
+    }
 
     if (!email || !password) {
       setError("Please enter both email and password.");
@@ -47,18 +81,11 @@ export default function LokNidhiLogin() {
 
     setLoading(true);
     try {
-      // 1. Authenticate with Firebase
       await signInWithEmailAndPassword(auth, email, password);
-      
       console.log("User successfully logged in!");
-      
-      // 2. Redirect to the Role Selection Page 
-      // (Adjust '/roles' to match whatever you named your role selection route)
       router.push("/role-based"); 
-      
     } catch (err: any) {
       console.error(err);
-      // Make Firebase errors more user-friendly
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
         setError("Invalid email or password. Please try again.");
       } else {
@@ -66,6 +93,136 @@ export default function LokNidhiLogin() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // MetaMask Login Handler
+  const handleMetaMaskLogin = async () => {
+    setError("");
+    setMetamaskLoading(true);
+    setAuthStep("connecting");
+    
+    try {
+      const ethereum = (window as any).ethereum;
+      
+      if (!ethereum) {
+        setError("MetaMask not found. Please install MetaMask extension.");
+        setMetamaskLoading(false);
+        setAuthStep("idle");
+        return;
+      }
+
+      // Step 1: Request accounts (Connect Wallet)
+      console.log("Step 1: Requesting wallet connection...");
+      const accounts = await ethereum.request({
+        method: "eth_requestAccounts",
+      }).catch((err: any) => {
+        if (err.code === 4001) {
+          throw new Error("MetaMask connection rejected. Please approve to continue.");
+        }
+        throw err;
+      });
+
+      if (!accounts || accounts.length === 0) {
+        setError("No MetaMask account found. Please create or unlock your wallet.");
+        setMetamaskLoading(false);
+        setAuthStep("idle");
+        return;
+      }
+
+      const walletAddress = accounts[0];
+      console.log("✅ Wallet connected:", walletAddress);
+
+      // Step 2: Get signing message from backend
+      setAuthStep("signing");
+      console.log("Step 2: Fetching message to sign...");
+      let messageData;
+      try {
+        const messageResponse = await fetch("http://127.0.0.1:8000/api/v1/auth/metamask/message", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          }
+        });
+
+        if (!messageResponse.ok) {
+          throw new Error(`Backend error: ${messageResponse.status}`);
+        }
+
+        messageData = await messageResponse.json();
+        console.log("📝 Message prepared for signing");
+      } catch (fetchErr: any) {
+        console.error("Backend fetch error:", fetchErr);
+        setError("Could not connect to backend. Make sure backend is running on http://127.0.0.1:8000");
+        setMetamaskLoading(false);
+        setAuthStep("idle");
+        return;
+      }
+
+      // Step 3: Request signature (Sign Digital Signature)
+      console.log("Step 3: Requesting digital signature...");
+      const signature = await ethereum.request({
+        method: "personal_sign",
+        params: [messageData.message, walletAddress],
+      }).catch((err: any) => {
+        if (err.code === 4001) {
+          throw new Error("Signature request rejected. Please sign to authenticate.");
+        }
+        throw err;
+      });
+      
+      console.log("✅ Digital signature signed successfully");
+
+      // Step 4: Verify signature on backend
+      setAuthStep("verifying");
+      console.log("Step 4: Verifying signature with backend...");
+      let verifyResponse;
+      try {
+        verifyResponse = await fetch("http://127.0.0.1:8000/api/v1/auth/metamask/verify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({
+            address: walletAddress,
+            message: messageData.message,
+            signature: signature,
+            nonce: messageData.nonce,
+          }),
+        });
+
+        if (!verifyResponse.ok) {
+          const errorData = await verifyResponse.json();
+          throw new Error(errorData.detail || "Signature verification failed");
+        }
+
+        const verifyData = await verifyResponse.json();
+
+        // Store token
+        if (verifyData.token) {
+          localStorage.setItem("walletToken", verifyData.token);
+          localStorage.setItem("walletAddress", walletAddress);
+          setWalletAddress(walletAddress);
+          setIsMetamaskAuthenticated(true);
+          setAuthStep("idle");
+          console.log("✅ MetaMask authentication successful!");
+        }
+      } catch (verifyErr: any) {
+        console.error("Verification error:", verifyErr);
+        setError(verifyErr.message || "Backend verification failed. Please check backend logs.");
+        setMetamaskLoading(false);
+        setAuthStep("idle");
+        return;
+      }
+
+    } catch (err: any) {
+      console.error("MetaMask error:", err);
+      setError(err.message || "MetaMask authentication failed. Please try again.");
+      setAuthStep("idle");
+    } finally {
+      setMetamaskLoading(false);
     }
   };
 
@@ -131,62 +288,191 @@ export default function LokNidhiLogin() {
           </CardHeader>
 
           <CardContent>
-            <form id="login-form" onSubmit={handleLogin} className="space-y-5">
-              
-              {/* Error Message Display */}
-              {error && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200 flex items-start">
-                  <Shield className="w-4 h-4 mr-2 mt-0.5 shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
+            {/* Error Message Display */}
+            {error && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200 flex items-start mb-5">
+                <Shield className="w-4 h-4 mr-2 mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-700 font-semibold">Official Email (NIC/Gov)</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    value={email} 
-                    onChange={(e) => setEmail(e.target.value)} 
-                    placeholder="name@gov.in" 
-                    className="h-11 focus-visible:ring-[#000080]"
-                    required 
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password" className="text-gray-700 font-semibold">Password</Label>
-                    <a href="#" className="text-xs text-[#FF9933] font-medium hover:underline">Forgot password?</a>
+            {/* Authentication Progress Indicator */}
+            {metamaskLoading && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-blue-900">
+                      {authStep === "connecting" && "🔗 Connecting Wallet..."}
+                      {authStep === "signing" && "✍️ Signing Digital Signature..."}
+                      {authStep === "verifying" && "⏳ Verifying Signature..."}
+                    </p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      {authStep === "connecting" && "Please select your wallet in the MetaMask popup"}
+                      {authStep === "signing" && "Please sign the message in MetaMask (no gas fees)"}
+                      {authStep === "verifying" && "Verifying your signature with the backend"}
+                    </p>
                   </div>
-                  <Input 
-                    id="password" 
-                    type="password" 
-                    value={password} 
-                    onChange={(e) => setPassword(e.target.value)} 
-                    placeholder="••••••••" 
-                    className="h-11 focus-visible:ring-[#000080]"
-                    required 
-                  />
                 </div>
               </div>
-            </form>
+            )}
+
+            {/* Step 1: MetaMask Authentication */}
+            <div className="space-y-4">
+              <div className="text-sm font-semibold text-gray-700 flex items-center">
+                <span className="inline-flex items-center justify-center w-6 h-6 bg-[#000080] text-white text-xs rounded-full font-bold mr-2">1</span>
+                Wallet Authentication (Required)
+              </div>
+
+              {!hasMetamask ? (
+                <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 text-sm">
+                  <p className="text-yellow-800 font-medium mb-2">MetaMask Not Found</p>
+                  <p className="text-yellow-700 text-xs mb-3">
+                    You need MetaMask to access this secure portal. Install it to proceed.
+                  </p>
+                  <a 
+                    href="https://metamask.io" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-block bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-xs font-medium transition-colors"
+                  >
+                    Install MetaMask
+                  </a>
+                </div>
+              ) : (
+                <Button 
+                  onClick={handleMetaMaskLogin}
+                  disabled={metamaskLoading || isMetamaskAuthenticated}
+                  type="button"
+                  className="w-full h-12 bg-black hover:bg-gray-800 text-white font-semibold text-base transition-all shadow-md hover:shadow-lg"
+                >
+                  {metamaskLoading ? (
+                    <>
+                      <Loader2 className="mr-2 w-5 h-5 animate-spin" />
+                      {authStep === "connecting" && "Connecting Wallet..."}
+                      {authStep === "signing" && "Signing Digital Signature..."}
+                      {authStep === "verifying" && "Verifying Signature..."}
+                    </>
+                  ) : isMetamaskAuthenticated ? (
+                    <>
+                      <Shield className="mr-2 w-5 h-5 text-green-400" />
+                      Wallet Connected: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                    </>
+                  ) : (
+                    <>
+                      Connect with MetaMask <LogIn className="ml-2 w-5 h-5" />
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {/* Step 2: Email/Password (Only if MetaMask authenticated) */}
+            {isMetamaskAuthenticated && (
+              <>
+                <div className="my-6 border-t border-gray-200"></div>
+                
+                <div className="space-y-4">
+                  <div className="text-sm font-semibold text-gray-700 flex items-center">
+                    <span className="inline-flex items-center justify-center w-6 h-6 bg-[#000080] text-white text-xs rounded-full font-bold mr-2">2</span>
+                    Email & Password
+                  </div>
+
+                  <form id="login-form" onSubmit={handleLogin} className="space-y-5">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="text-gray-700 font-semibold">Official Email (NIC/Gov)</Label>
+                        <Input 
+                          id="email" 
+                          type="email" 
+                          value={email} 
+                          onChange={(e) => setEmail(e.target.value)} 
+                          placeholder="name@gov.in" 
+                          className="h-11 focus-visible:ring-[#000080]"
+                          required 
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="password" className="text-gray-700 font-semibold">Password</Label>
+                          <a href="#" className="text-xs text-[#FF9933] font-medium hover:underline">Forgot password?</a>
+                        </div>
+                        <Input 
+                          id="password" 
+                          type="password" 
+                          value={password} 
+                          onChange={(e) => setPassword(e.target.value)} 
+                          placeholder="••••••••" 
+                          className="h-11 focus-visible:ring-[#000080]"
+                          required 
+                        />
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </>
+            )}
+
+            {/* Security Note */}
+            {!isMetamaskAuthenticated && (
+              <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-800">
+                  <span className="font-semibold">🔒 Security First:</span> MetaMask authentication ensures secure blockchain-verified access to this government portal. Your wallet never shares private keys.
+                </p>
+              </div>
+            )}
           </CardContent>
           
           <CardFooter className="flex flex-col space-y-4 pt-4 bg-gray-50/50 rounded-b-xl border-t border-gray-100">
-            <Button 
-              form="login-form" 
-              type="submit" 
-              disabled={loading}
-              className="w-full h-12 bg-[#000080] hover:bg-blue-900 text-white font-semibold text-base transition-all shadow-md hover:shadow-lg"
-            >
-              {loading ? (
-                <>Authenticating <Loader2 className="ml-2 w-5 h-5 animate-spin" /></>
-              ) : (
-                <>Secure Login <LogIn className="ml-2 w-5 h-5" /></>
-              )}
-            </Button>
+            {isMetamaskAuthenticated && (
+              <>
+                <Button 
+                  form="login-form" 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full h-12 bg-[#000080] hover:bg-blue-900 text-white font-semibold text-base transition-all shadow-md hover:shadow-lg"
+                >
+                  {loading ? (
+                    <>Authenticating <Loader2 className="ml-2 w-5 h-5 animate-spin" /></>
+                  ) : (
+                    <>Complete Secure Login <LogIn className="ml-2 w-5 h-5" /></>
+                  )}
+                </Button>
+
+                <button 
+                  type="button"
+                  onClick={() => {
+                    localStorage.removeItem("walletToken");
+                    localStorage.removeItem("walletAddress");
+                    setIsMetamaskAuthenticated(false);
+                    setWalletAddress("");
+                    setError("");
+                    setAuthStep("idle");
+                  }}
+                  className="text-sm text-gray-500 hover:text-red-600 font-medium transition-colors"
+                >
+                  🔄 Start Fresh Connection
+                </button>
+              </>
+            )}
+
+            {!isMetamaskAuthenticated && (
+              <button 
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem("walletToken");
+                  localStorage.removeItem("walletAddress");
+                  setIsMetamaskAuthenticated(false);
+                  setWalletAddress("");
+                  setError("");
+                  setAuthStep("idle");
+                }}
+                className="text-xs text-gray-400 hover:text-gray-600 font-medium transition-colors text-center py-2"
+              >
+                Clear Session Cache
+              </button>
+            )}
             
             <p className="text-sm text-center text-gray-600 pt-2">
               Don't have an official account?{" "}

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import joblib
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
@@ -47,6 +48,10 @@ print("MAE:", round(mae,2))
 print("RMSE:", round(rmse,2))
 print("R2 Score:", round(r2,3))
 
+# SAVE REGRESSION MODEL
+joblib.dump(model, "amount_prediction_model.pkl")
+
+
 ########################################################
 # PART 2: LAPSE RISK CLASSIFICATION
 ########################################################
@@ -87,8 +92,12 @@ rec = recall_score(y_test, preds)
 f1 = f1_score(y_test, preds)
 
 print("\nLAPSE RISK METRICS")
-
 print("Accuracy:", round(acc,3))
 print("Precision:", round(prec,3))
 print("Recall:", round(rec,3))
 print("F1 Score:", round(f1,3))
+
+# SAVE CLASSIFICATION MODEL
+joblib.dump(clf, "lapse_risk_model.pkl")
+
+print("\nModels saved successfully!")

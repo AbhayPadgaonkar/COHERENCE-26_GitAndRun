@@ -1,5 +1,5 @@
 """Prediction Module for fund lapse and spending forecasts"""
-from typing import List, Optional
+from typing import List, Optional, Dict
 from app.database.schemas import FundLapsePredictionCreate, FundLapsePredictionResponse
 from app.core.firebase import FirebaseConfig
 from app.core.logger import logger
@@ -142,3 +142,105 @@ class PredictionService:
                 })
         
         return sorted(at_risk, key=lambda x: x.get("lapse_probability"), reverse=True)
+
+
+# ============================================================================
+# ML-BASED PREDICTION SERVICE (Trained Models)
+# ============================================================================
+
+import json
+import os
+from dataclasses import dataclass
+
+@dataclass
+class AmountPrediction:
+    scheme_id: str
+    predicted_amount: float
+    days_ahead: int
+    trend: str
+    confidence: float
+
+class MLPredictionService:
+    """ML-based prediction service using trained models"""
+    
+    def __init__(self, model_file: str = "fund_prediction_models.json"):
+        self.models = {}
+        self.model_file = model_file
+        self.load_models()
+    
+    def load_models(self):
+        """Load trained models"""
+        try:
+            if os.path.exists(self.model_file):
+                with open(self.model_file, 'r') as f:
+                    self.models = json.load(f)
+                print(f"✅ Loaded ML models from {self.model_file}")
+            else:
+                self.models = {'amount_trends': {}, 'lapse_patterns': {}, 'seasonal_factors': {}}
+        except Exception as e:
+            self.models = {'amount_trends': {}, 'lapse_patterns': {}, 'seasonal_factors': {}}
+    
+    def predict_future_amount(self, scheme_id: str, days_ahead: int = 30) -> Optional[AmountPrediction]:
+        """Predict future disbursement amount using trained ML models"""
+        if scheme_id not in self.models.get('amount_trends', {}):
+            return None
+        
+        model = self.models['amount_trends'][scheme_id]
+        
+        # Linear prediction
+        predicted_amount = model['intercept'] + model['slope'] * days_ahead
+        
+        # Apply seasonal factor
+        future_month = (datetime.now() + timedelta(days=days_ahead)).month
+        seasonal_data = self.models.get('seasonal_factors', {}).get(str(future_month), {'factor': 1.0})
+        
+        predicted_amount *= seasonal_data['factor']
+        predicted_amount = max(predicted_amount, model['avg_amount'] * 0.1)
+        
+        confidence = 0.8 if model['trend'] != 'stable' else 0.6
+        
+        return AmountPrediction(
+            scheme_id=scheme_id,
+            predicted_amount=round(predicted_amount, 2),
+            days_ahead=days_ahead,
+            trend=model['trend'],
+            confidence=confidence
+        )
+    
+    def predict_lapse_risk_ml(self, scheme_id: str) -> Optional[Dict]:
+        """Predict lapse risk using ML models"""
+        if scheme_id not in self.models.get('lapse_patterns', {}):
+            return None
+        
+        model = self.models['lapse_patterns'][scheme_id]
+        risk_level = model['risk_level']
+        avg_risk = model['avg_risk']
+        
+        return {
+            "scheme_id": scheme_id,
+            "lapse_probability": round(avg_risk, 2),
+            "risk_level": risk_level,
+            "recommendation": "Accelerate disbursements" if avg_risk > 0.5 else "Monitor regularly"
+        }
+    
+    def get_seasonal_insights(self) -> Dict:
+        """Get seasonal pattern insights"""
+        seasonal_factors = self.models.get('seasonal_factors', {})
+        current_month = datetime.now().month
+        
+        month_names = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        
+        peak_months = []
+        for month_str, data in seasonal_factors.items():
+            if data.get('factor', 1.0) > 1.2:
+                peak_months.append(month_names[int(month_str)])
+        
+        return {
+            "current_month": month_names[current_month],
+            "peak_months": peak_months,
+            "current_factor": seasonal_factors.get(str(current_month), {'factor': 1.0})['factor']
+        }
+
+# Create both services for different use cases
+ml_prediction_service = MLPredictionService()  # ML-based predictions
